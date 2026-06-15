@@ -1129,29 +1129,43 @@ async function notify(lead){
 let ROLE = "admin";   // "admin" = full access; "viewer" = team member (read-only except Dashboard/Campaigns)
 function isViewer(){ return ROLE === "viewer"; }
 
+const SESSION_KEY = "leadfloor:session";
+function saveSession(){
+  try{ sessionStorage.setItem(SESSION_KEY, JSON.stringify({role:ROLE, view:curView})); }catch(e){}
+}
+function clearSession(){ try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){} }
+function readSession(){
+  try{ const r=sessionStorage.getItem(SESSION_KEY); return r?JSON.parse(r):null; }catch(e){ return null; }
+}
+// Enter the console in a given role, optionally landing on a specific view.
+function openConsole(role, view){
+  ROLE = role==="viewer" ? "viewer" : "admin";
+  document.body.classList.toggle("role-viewer", ROLE==="viewer");
+  $("#gate").classList.add("hide");
+  $("#shell").classList.remove("hide");
+  saveSession();
+  navTo(view || "dashboard");
+}
+
 $("#gateForm").addEventListener("submit",e=>{
   e.preventDefault();
   const v = $("#gatePass").value;
   const adminPass = DB.settings.passcode || "admin";
   const teamPass  = DB.settings.teamPasscode || "team";
   if(v === adminPass){
-    ROLE = "admin";
+    openConsole("admin");
   } else if(teamPass && v === teamPass){
-    ROLE = "viewer";
+    openConsole("viewer");
   } else {
     toast("Wrong passcode");
     $("#gatePass").value="";
-    return;
   }
-  document.body.classList.toggle("role-viewer", ROLE==="viewer");
-  $("#gate").classList.add("hide");
-  $("#shell").classList.remove("hide");
-  navTo("dashboard");
 });
 ["logoutBtn","logoutBtn2"].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener("click",()=>{
     ROLE="admin"; document.body.classList.remove("role-viewer");
+    clearSession();
     $("#shell").classList.add("hide"); $("#gate").classList.remove("hide"); $("#gatePass").value="";
   });
 });
@@ -1165,6 +1179,7 @@ function navTo(view){
   // Settings is admin-only — never render it (or its passcodes) for team users
   if(view==="settings" && isViewer()){ view="dashboard"; }
   curView = view;
+  if(!$("#shell").classList.contains("hide")) saveSession();
   document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#navLeadCnt").textContent = leadsData().length;
   const C = $("#content");
@@ -2019,6 +2034,13 @@ function setSyncStatus(state){
   window.addEventListener("hashchange",route);
   route();
   applyLoginWallpaper();
+  // Restore a previous session so a page refresh keeps the user logged in
+  // on the same tab (instead of bouncing back to the passcode screen).
+  // Only on the admin side — never auto-open the console over a customer form.
+  const sess = readSession();
+  if(sess && sess.role && !(location.hash||"").startsWith("#/c")){
+    openConsole(sess.role, sess.view || "dashboard");
+  }
   setSyncStatus(DB.settings.webhook ? "checking" : "off");
   // pull the shared setup + leads from the Google Sheet, then re-render if anything changed
   if(DB.settings.webhook){
