@@ -105,12 +105,14 @@
   #gBgImg{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;background-repeat:no-repeat;display:none}
   #gBgOverlay{position:fixed;inset:0;z-index:0;background:rgba(10,16,28,.45);display:none}
   .gate.has-bg #gBgImg, .gate.has-bg #gBgOverlay{display:block}
+  /* when a login wallpaper is set, suppress the default page gradient behind it */
+  body.has-login-bg::before{display:none}
   #gBgImg{background-image:var(--g-desktop,none)}
   @media (max-width:640px){
     #gBgImg{background-image:var(--g-mobile,var(--g-desktop,none))}
   }
   .gate .gatebox{position:relative;z-index:1}
-  .gate.has-bg .gatebox{background:rgba(255,255,255,.86);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);padding:28px 24px 24px;border-radius:20px;box-shadow:0 20px 60px rgba(10,16,28,.28)}
+  .gate.has-bg .gatebox{background:rgba(255,255,255,.58);backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);padding:30px 26px 26px;border-radius:22px;box-shadow:0 24px 70px rgba(10,16,28,.32);border:1px solid rgba(255,255,255,.4)}
   .gatebox{width:100%;max-width:360px;text-align:center}
   .logo{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-.01em;display:inline-flex;align-items:center;gap:9px;margin-bottom:6px}
   .logo .mk{width:30px;height:30px;border-radius:8px;background:var(--signal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px}
@@ -2015,7 +2017,9 @@ function applyLoginWallpaper(){
   const cssUrl = u => `url("${u.replace(/"/g,'%22')}")`;
   gate.style.setProperty("--g-desktop", d ? cssUrl(d) : "none");
   gate.style.setProperty("--g-mobile",  m ? cssUrl(m) : (d ? cssUrl(d) : "none"));
-  gate.classList.toggle("has-bg", !!(d || m));
+  const on = !!(d || m);
+  gate.classList.toggle("has-bg", on);
+  document.body.classList.toggle("has-login-bg", on);
 }
 function setSyncStatus(state){
   const el = document.getElementById("syncStat"); if(!el) return;
