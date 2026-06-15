@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>LeadFloor — Lead capture & sales conversion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#E9EDF2; --panel:#FFFFFF; --panel2:#F1F4F7; --line:#E2E7EC;
+    --paper:#F7F5F0; --paper2:#EFEBE2;
+    --signal:#FF5A1F; --signal-d:#E8430A;
+    --txt:#1A2026; --mut:#5B6663; --mut2:#8A9491;
+    --ink-txt:#1A1E20; --ink-mut:#5C6562;
+    --wa:#25D366; --wa-d:#1da851;
+    --s-new:#3B82F6; --s-contacted:#8B5CF6; --s-interested:#F59E0B; --s-converted:#10B981; --s-closed:#71777B;
+    --ok:#10B981; --err:#EF4444;
+    --r:10px;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--body);background:var(--ink);color:var(--txt);-webkit-font-smoothing:antialiased;line-height:1.45}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font-family:inherit;font-size:15px}
+  a{color:inherit}
+  ::selection{background:var(--signal);color:#fff}
+  .mono{font-family:var(--mono)}
+  .hide{display:none !important}
+
+  /* ---------- shared form controls ---------- */
+  .fld{display:block;margin-bottom:14px}
+  .fld label{display:block;font-size:12px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px;color:var(--ink-mut)}
+  .req{color:var(--signal)}
+  .ctl{width:100%;padding:12px 13px;border-radius:9px;border:1.5px solid var(--paper2);background:#fff;color:var(--ink-txt);transition:border-color .15s,box-shadow .15s}
+  .ctl:focus{outline:none;border-color:var(--signal);box-shadow:0 0 0 3px rgba(255,90,31,.15)}
+  textarea.ctl{resize:vertical;min-height:74px}
+  .pricewrap{display:flex;align-items:stretch}
+  .pricewrap .cur{display:flex;align-items:center;padding:0 11px;border:1.5px solid var(--paper2);border-right:none;border-radius:9px 0 0 9px;background:var(--paper2);font-weight:700;font-size:13px;color:var(--mut);letter-spacing:.02em}
+  .pricewrap .ctl{border-radius:0 9px 9px 0}
+  .mbody .pricewrap .cur{background:rgba(20,30,40,.06);border-color:var(--line);color:var(--txt)}
+  select.ctl{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%235C6562' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+
+  /* =========================================================
+     CUSTOMER FORM  (light paper surface)
+     ========================================================= */
+  #customer{min-height:100%;background:var(--paper);color:var(--ink-txt);display:none;position:relative}
+  #customer.on{display:block}
+  #customer .cwrap{position:relative;z-index:1}
+  .cwrap{max-width:460px;margin:0 auto;padding:0 18px 48px}
+  .chero{padding:30px 0 22px}
+  .ccamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--signal-d);background:rgba(255,90,31,.1);padding:5px 10px;border-radius:20px;margin-bottom:18px}
+  .ccamp::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--signal)}
+  .cbrand{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-mut);margin-bottom:6px}
+  .chero h1{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1.08;letter-spacing:-.02em;margin-bottom:8px}
+  .chero p{color:var(--ink-mut);font-size:15px}
+  .cprod{display:flex;gap:14px;align-items:center;background:#fff;border:1.5px solid var(--paper2);border-radius:var(--r);padding:14px;margin-bottom:24px}
+  .cprod .tile{width:46px;height:46px;border-radius:9px;background:var(--ink);color:var(--signal);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:20px;flex:0 0 auto}
+  .cprod .pname{font-weight:600;font-size:15px}
+  .cprod .pmeta{font-size:12.5px;color:var(--ink-mut);font-family:var(--mono)}
+  .cform{background:#fff;border:1.5px solid var(--paper2);border-radius:14px;padding:20px 18px}
+  .consent{display:flex;gap:11px;align-items:flex-start;background:var(--paper);border-radius:9px;padding:12px;margin:4px 0 18px;cursor:pointer}
+  .consent input{width:19px;height:19px;margin-top:1px;accent-color:var(--signal);flex:0 0 auto}
+  .consent span{font-size:12.5px;color:var(--ink-mut);line-height:1.45}
+  .submit{width:100%;padding:15px;border-radius:10px;background:var(--signal);color:#fff;font-weight:600;font-size:16px;font-family:var(--disp);letter-spacing:.01em;transition:background .15s,transform .05s}
+  .submit:hover{background:var(--signal-d)}
+  .submit:active{transform:translateY(1px)}
+  .submit:disabled{opacity:.5;cursor:not-allowed}
+  .cfoot{text-align:center;margin-top:18px;font-size:11.5px;color:var(--ink-mut)}
+  .lock{display:inline-block;vertical-align:-1px;margin-right:4px}
+  /* thank you */
+  .thanks{text-align:center;padding:60px 0}
+  .thanks .chk{width:72px;height:72px;border-radius:50%;background:var(--s-converted);display:flex;align-items:center;justify-content:center;margin:0 auto 22px}
+  .thanks h2{font-family:var(--disp);font-weight:700;font-size:26px;margin-bottom:10px}
+  .thanks p{color:var(--ink-mut);max-width:320px;margin:0 auto 22px}
+  .ghost{background:#fff;border:1.5px solid var(--paper2);color:var(--ink-txt);padding:11px 18px;border-radius:9px;font-weight:600;font-size:14px}
+  .ferr{color:var(--err);font-size:12.5px;margin-top:4px;font-weight:500}
+  /* phone + colour picker */
+  .phonewrap{display:flex;gap:8px}
+  .ccsel{flex:0 0 122px;padding-right:28px;font-weight:600}
+  .phonewrap input{flex:1}
+  .colorgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+  .swatch{border:1.5px solid var(--paper2);border-radius:10px;padding:8px;cursor:pointer;text-align:center;background:#fff;transition:border-color .15s,box-shadow .15s}
+  .swatch:hover{border-color:var(--mut2)}
+  .swatch.sel{border-color:var(--signal);box-shadow:0 0 0 3px rgba(255,90,31,.15)}
+  .swatch .img{width:100%;aspect-ratio:1;border-radius:7px;object-fit:cover;background:var(--paper2);display:block;margin-bottom:6px}
+  .swatch .dot{width:100%;aspect-ratio:1;border-radius:7px;margin-bottom:6px;border:1px solid rgba(0,0,0,.08)}
+  .swatch .cn{font-size:12px;font-weight:600;color:var(--ink-txt);line-height:1.2}
+
+  /* =========================================================
+     ADMIN CONSOLE  (dark surface)
+     ========================================================= */
+  #admin{display:none;min-height:100vh}
+  #admin.on{display:block}
+
+  /* gate */
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
+  /* LeadFloor login wallpaper — set in admin Settings, only the team sees this page */
+  #gBgImg{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;background-repeat:no-repeat;display:none}
+  #gBgOverlay{position:fixed;inset:0;z-index:0;background:rgba(10,16,28,.45);display:none}
+  .gate.has-bg #gBgImg, .gate.has-bg #gBgOverlay{display:block}
+  #gBgImg{background-image:var(--g-desktop,none)}
+  @media (max-width:640px){
+    #gBgImg{background-image:var(--g-mobile,var(--g-desktop,none))}
+  }
+  .gate .gatebox{position:relative;z-index:1}
+  .gate.has-bg .gatebox{background:rgba(255,255,255,.86);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);padding:28px 24px 24px;border-radius:20px;box-shadow:0 20px 60px rgba(10,16,28,.28)}
+  .gatebox{width:100%;max-width:360px;text-align:center}
+  .logo{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-.01em;display:inline-flex;align-items:center;gap:9px;margin-bottom:6px}
+  .logo .mk{width:30px;height:30px;border-radius:8px;background:var(--signal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px}
+  .slogo{display:inline-block;width:38px;height:38px;background:url(data:image/png;base64,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) center/contain no-repeat;flex:0 0 auto}
+  .slogo.lg{width:96px;height:96px;display:block;margin:0 auto 18px}
+  .slogo.c{width:72px;height:72px;display:block;margin:0 auto 16px}
+  .gate p{color:var(--mut);font-size:13.5px;margin-bottom:26px}
+  .gatebox .ctl{background:var(--panel);border-color:var(--line);color:var(--txt);text-align:center;letter-spacing:.1em}
+  .gatebox .ctl::placeholder{letter-spacing:0;color:var(--mut2)}
+  .gatebox .submit{margin-top:12px}
+  .syncstat{margin-top:16px;display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:var(--panel2);font-size:12.5px;font-family:var(--mono);color:var(--mut)}
+  .syncstat .dot{width:8px;height:8px;border-radius:50%;background:var(--mut2);flex:0 0 auto}
+  .syncstat.ok{color:#0E7A4E;background:rgba(16,185,129,.12)}
+  .syncstat.ok .dot{background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+  .syncstat.off{color:#9A5500;background:rgba(245,158,11,.12)}
+  .syncstat.off .dot{background:#F59E0B}
+  .hint{margin-top:16px;font-size:12px;color:var(--mut2);font-family:var(--mono)}
+
+  /* shell */
+  .shell{display:flex;min-height:100vh}
+  .side{width:228px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .side .brand{padding:20px 18px 16px;border-bottom:1px solid var(--line)}
+  .nav{flex:1;padding:10px 10px;overflow-y:auto}
+  .nav button{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 12px;border-radius:8px;color:var(--mut);font-size:14px;font-weight:500;margin-bottom:2px;transition:background .12s,color .12s}
+  .nav button:hover{background:var(--panel2);color:var(--txt)}
+  .nav button.active{background:var(--signal);color:#fff}
+  .nav button .ic{width:18px;flex:0 0 auto;display:flex}
+  .nav .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.12);padding:1px 7px;border-radius:10px}
+  .nav button.active .cnt{background:rgba(0,0,0,.18)}
+  .side .foot{padding:12px;border-top:1px solid var(--line)}
+  .side .foot button{width:100%;padding:9px;border-radius:8px;color:var(--mut);font-size:13px;border:1px solid var(--line)}
+  .side .foot button:hover{color:var(--txt);border-color:var(--mut2)}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{display:none}
+  .content{padding:26px 30px 60px;max-width:1180px;width:100%}
+  .phead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  .phead h1{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-.01em}
+  .phead .sub{color:var(--mut);font-size:13.5px;margin-top:3px}
+
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 15px;border-radius:9px;background:var(--signal);color:#fff;font-weight:600;font-size:13.5px;transition:background .12s,transform .05s}
+  .btn:hover{background:var(--signal-d)}.btn:active{transform:translateY(1px)}
+  .btn.sec{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .btn.sec:hover{background:var(--line)}
+  .btn.sm{padding:7px 11px;font-size:12.5px}
+
+  /* kpi cards */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 14px;position:relative;overflow:hidden}
+  .kpi .lab{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+  .kpi .num{font-family:var(--mono);font-weight:700;font-size:30px;line-height:1.1;margin-top:8px}
+  .kpi .delta{font-family:var(--mono);font-size:11.5px;color:var(--mut2);margin-top:2px}
+  .kpi .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal)}
+
+  /* funnel */
+  .panelcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .panelcard h3{font-family:var(--disp);font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}
+  .funnel-row{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+  .funnel-row .nm{width:96px;font-size:13px;color:var(--mut);flex:0 0 auto}
+  .funnel-row .track{flex:1;height:26px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .funnel-row .fill{height:100%;border-radius:6px;min-width:2px;transition:width .5s ease;display:flex;align-items:center;padding-left:9px;font-family:var(--mono);font-size:12px;font-weight:600;color:#fff}
+  .funnel-row .pct{width:42px;text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--mut);flex:0 0 auto}
+
+  /* table */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .search{flex:1;min-width:180px;position:relative}
+  .search input{width:100%;padding:10px 12px 10px 34px;border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--txt)}
+  .search input:focus{outline:none;border-color:var(--signal)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--mut2)}
+  .fsel{padding:10px 30px 10px 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--txt);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239AA3A0' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;font-size:13.5px}
+  .fsel:focus{outline:none;border-color:var(--signal)}
+
+  .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+  thead th{text-align:left;padding:12px 14px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut2);border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel)}
+  tbody td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--panel2)}
+  .lname{font-weight:600}
+  .lsub{font-size:12px;color:var(--mut);font-family:var(--mono)}
+  .chiprow{display:flex;gap:6px;align-items:center}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
+  .fcopy{flex:0 0 auto;border:1px solid var(--line);background:var(--panel2);color:var(--mut);width:22px;height:22px;border-radius:6px;font-size:12px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .12s}
+  .fcopy:hover{color:var(--txt);border-color:var(--mut2)}
+  .fcopy.ok{color:var(--s-converted);border-color:var(--s-converted)}
+  /* viewer role: hide every modify control (add/edit/delete/import/save). Dashboard
+     and Campaigns stay fully usable; everything else is view-only. */
+  body.role-viewer .vhide{display:none !important}
+  .vobadge{display:none;margin-left:auto;margin-right:12px;font-size:12px;font-weight:600;font-family:var(--mono);color:var(--s-interested);background:rgba(245,158,11,.12);padding:5px 11px;border-radius:999px}
+  body.role-viewer .vobadge{display:inline-block}
+  .vobadge2{display:none;text-align:center;font-size:11.5px;font-weight:600;font-family:var(--mono);color:var(--s-interested);background:rgba(245,158,11,.12);padding:7px 10px;border-radius:8px;margin-bottom:8px}
+  body.role-viewer .vobadge2{display:block}
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .b-new{color:var(--s-new);background:rgba(59,130,246,.13)}
+  .b-contacted{color:var(--s-contacted);background:rgba(139,92,246,.13)}
+  .b-interested{color:var(--s-interested);background:rgba(245,158,11,.13)}
+  .b-converted{color:var(--s-converted);background:rgba(16,185,129,.13)}
+  .b-closed{color:var(--s-closed);background:rgba(113,119,123,.14)}
+
+  .stsel{padding:8px 30px 8px 12px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);font-size:13px;font-weight:600;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239AA3A0' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;cursor:pointer;min-width:118px}
+  .wabtn{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:8px;background:var(--wa);color:#fff;font-weight:600;font-size:12.5px;white-space:nowrap}
+  .wabtn:hover{background:var(--wa-d)}
+  .iconbtn{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--mut);display:inline-flex;align-items:center;justify-content:center}
+  .iconbtn:hover{color:var(--txt);border-color:var(--mut2)}
+  .iconbtn.del:hover{color:var(--err);border-color:var(--err)}
+
+  .empty{text-align:center;padding:54px 20px;color:var(--mut)}
+  .empty .big{font-family:var(--disp);font-size:17px;font-weight:600;color:var(--txt);margin:14px 0 6px}
+  .empty .ico{color:var(--mut2)}
+  .livedot{font-size:11px;font-weight:600;color:var(--s-converted);font-family:var(--mono)}
+  .livedot.off{color:var(--mut2)}
+
+  /* product/rep/campaign cards */
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .ecard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
+  .ecard .et{display:flex;gap:11px;align-items:flex-start}
+  .ecard .tile{width:42px;height:42px;border-radius:9px;background:var(--ink);color:var(--signal);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:18px;flex:0 0 auto}
+  .ecard .nm{font-weight:600;font-size:14.5px}
+  .ecard .meta{font-size:12px;color:var(--mut);font-family:var(--mono);word-break:break-all}
+  .ecard .acts{display:flex;gap:7px;margin-top:auto;padding-top:6px}
+  .pill{font-size:10.5px;font-family:var(--mono);font-weight:600;padding:2px 8px;border-radius:5px;text-transform:uppercase;letter-spacing:.03em}
+  .pill.on{background:rgba(16,185,129,.14);color:var(--s-converted)}
+  .pill.off{background:rgba(113,119,123,.16);color:var(--s-closed)}
+
+  /* modal */
+  .scrim{position:fixed;inset:0;background:rgba(8,10,11,.7);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50;opacity:0;pointer-events:none;transition:opacity .15s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;transform:translateY(8px);transition:transform .15s}
+  .scrim.on .modal{transform:none}
+  .modal.wide{max-width:540px}
+  .mhead{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+  .mhead h3{font-family:var(--disp);font-size:17px;font-weight:600}
+  .mbody{padding:20px}
+  .mbody .fld label{color:var(--mut)}
+  .mbody .ctl{background:var(--panel2);border-color:var(--line);color:var(--txt)}
+  .mbody .ctl::placeholder{color:var(--mut2)}
+  .mbody select.ctl{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239AA3A0' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  .mfoot{display:flex;gap:10px;justify-content:flex-end;padding:0 20px 20px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  /* colour variant editor (admin) */
+  .colorrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .colorrow input{flex:1;padding:9px 11px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);font-size:13.5px}
+  .colorrow input:focus{outline:none;border-color:var(--signal)}
+  .colorrow .thumb{width:34px;height:34px;border-radius:7px;flex:0 0 auto;object-fit:cover;background:var(--line);border:1px solid var(--line)}
+  .colorrow .rm{flex:0 0 auto;width:32px;height:32px;border-radius:7px;border:1px solid var(--line);color:var(--mut)}
+  .colorrow .rm:hover{color:var(--err);border-color:var(--err)}
+  .addcolor{font-size:12.5px;color:var(--signal);font-weight:600;padding:6px 0;cursor:pointer}
+  .colorhint{font-size:11.5px;color:var(--mut2);margin:-2px 0 10px}
+
+  /* qr / share */
+  .qrbox{text-align:center;padding:6px 0}
+  .qrbox canvas{border-radius:12px;background:#fff;padding:12px;display:inline-block}
+  .linkrow{display:flex;gap:8px;margin-top:14px}
+  .linkrow input{flex:1;padding:10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);color:var(--mut);font-family:var(--mono);font-size:12px}
+
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--signal);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--mut);margin-top:16px;line-height:1.5}
+  .note b{color:var(--txt)}
+
+  /* toast */
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink-txt);color:#fff;padding:12px 18px;border-radius:10px;font-size:13.5px;font-weight:500;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.2s;z-index:80;display:flex;align-items:center;gap:9px}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.ok{background:#0f3d2e;border:1px solid var(--ok)}
+
+  /* mobile */
+  @media(max-width:840px){
+    .grid2{grid-template-columns:1fr}
+  }
+  @media(max-width:720px){
+    .shell{flex-direction:column}
+    .side{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;height:auto;flex-direction:row;border-right:none;border-top:1px solid var(--line);z-index:40}
+    .side .brand,.side .foot{display:none}
+    .nav{display:flex;padding:6px;gap:2px;overflow-x:auto}
+    .nav button{flex-direction:column;gap:3px;padding:7px 10px;font-size:10.5px;white-space:nowrap;min-width:60px;text-align:center;justify-content:center}
+    .nav button .ic{width:20px;justify-content:center}
+    .nav .cnt{display:none}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:30}
+    .topbar .logo{font-size:18px}
+    .topbar .logo .mk{width:26px;height:26px;font-size:15px}
+    .content{padding:18px 16px 90px}
+    .phead h1{font-size:20px}
+    .grid2{margin-bottom:14px}
+    .row2{grid-template-columns:1fr}
+  }
+  /* =========================================================
+     GLASS THEME — admin console (white glass)
+     Frosted white panels over a soft cobalt/orange ambient glow.
+     Customer form keeps its paper look.
+     ========================================================= */
+  body{text-rendering:optimizeLegibility}
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(900px 620px at 12% -8%, rgba(43,108,255,.14), transparent 60%),
+      radial-gradient(820px 600px at 96% 18%, rgba(255,90,31,.10), transparent 55%),
+      radial-gradient(700px 520px at 45% 112%, rgba(139,92,246,.06), transparent 60%),
+      linear-gradient(180deg,#F4F7FA,#E8EDF3);
+  }
+  #admin .gate,#admin .shell{background:transparent}
+
+  /* product/rep initial tiles stay dark for contrast on white glass */
+  .cprod .tile,.ecard .tile{background:#15191C}
+
+  /* glass surfaces */
+  .kpi,.panelcard,.tablewrap,.ecard{
+    background:rgba(255,255,255,.55);
+    -webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);
+    border:1px solid rgba(255,255,255,.75);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 10px 30px rgba(31,45,61,.10);
+  }
+  .side{
+    background:rgba(255,255,255,.5);
+    -webkit-backdrop-filter:blur(24px) saturate(1.5);backdrop-filter:blur(24px) saturate(1.5);
+    border-right:1px solid rgba(255,255,255,.7);
+  }
+  .topbar{
+    background:rgba(255,255,255,.55);
+    -webkit-backdrop-filter:blur(24px) saturate(1.5);backdrop-filter:blur(24px) saturate(1.5);
+    border-bottom:1px solid rgba(255,255,255,.7);
+  }
+  @media(max-width:720px){
+    .side{border-top:1px solid rgba(255,255,255,.7);border-right:none}
+  }
+  .modal{
+    background:rgba(255,255,255,.7);
+    -webkit-backdrop-filter:blur(28px) saturate(1.6);backdrop-filter:blur(28px) saturate(1.6);
+    border:1px solid rgba(255,255,255,.85);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.95), 0 24px 60px rgba(31,45,61,.22);
+  }
+  .mhead{background:rgba(255,255,255,.82);-webkit-backdrop-filter:blur(28px);backdrop-filter:blur(28px);border-bottom-color:rgba(20,30,40,.07)}
+  .scrim{background:rgba(30,42,54,.32);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .toast{
+    background:rgba(22,28,33,.85);color:#fff;
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border:1px solid rgba(255,255,255,.15);
+  }
+  .toast.ok{background:rgba(12,46,35,.88);border-color:rgba(16,185,129,.5)}
+
+  /* controls on glass — background-color only, to keep the dropdown arrows */
+  .search input,.fsel,.stsel,.btn.sec,.iconbtn,.side .foot button{
+    background-color:rgba(255,255,255,.65);border-color:rgba(20,30,40,.1);
+  }
+  .search input:focus,.fsel:focus{border-color:var(--signal)}
+  .btn.sec{color:var(--txt)}
+  .btn.sec:hover{background-color:rgba(255,255,255,.95)}
+  .mbody .ctl,.gatebox .ctl{background-color:rgba(255,255,255,.7);border-color:rgba(20,30,40,.12);color:var(--txt)}
+  .gatebox .ctl::placeholder,.mbody .ctl::placeholder{color:var(--mut2)}
+  .mbody .consent{background:rgba(20,30,40,.04)}
+  .colorrow input{background-color:rgba(255,255,255,.7);border-color:rgba(20,30,40,.12);color:var(--txt)}
+  .linkrow input{background-color:rgba(255,255,255,.7);border-color:rgba(20,30,40,.12)}
+  .note{background:rgba(255,255,255,.5);border-color:rgba(20,30,40,.08);border-left-color:var(--signal)}
+  .funnel-row .track{background:rgba(20,30,40,.07)}
+  thead th{background:rgba(20,30,40,.03);border-bottom-color:rgba(20,30,40,.08)}
+  tbody td{border-bottom-color:rgba(20,30,40,.06)}
+  tbody tr:hover{background:rgba(20,30,40,.035)}
+  .nav button:hover{background:rgba(20,30,40,.05);color:var(--txt)}
+  .nav button.active{
+    background:linear-gradient(135deg,#FF6A33,#E8430A);color:#fff;
+    box-shadow:0 4px 16px rgba(255,90,31,.35), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  .nav .cnt{background:rgba(20,30,40,.08)}
+  .nav button.active .cnt{background:rgba(0,0,0,.18)}
+  .btn{box-shadow:0 4px 14px rgba(255,90,31,.3), inset 0 1px 0 rgba(255,255,255,.25)}
+  .btn.sec{box-shadow:none}
+  .stsel{color:var(--txt)}
+  .pill.off{background:rgba(20,30,40,.07)}
+
+  /* crisp type */
+  .phead h1,.gate .logo,.mhead h3{letter-spacing:-.02em}
+  .kpi .num{letter-spacing:-.01em;color:#15191C}
+  .kpi .lab,thead th{color:#6B7674}
+
+  /* fallback when blur is unsupported */
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .kpi,.panelcard,.tablewrap,.ecard{background:rgba(255,255,255,.94)}
+    .side,.topbar{background:rgba(255,255,255,.97)}
+    .modal,.mhead{background:rgba(255,255,255,.98)}
+    .scrim{background:rgba(30,42,54,.45)}
+  }
+  @media (prefers-reduced-transparency: reduce){
+    .kpi,.panelcard,.tablewrap,.ecard,.side,.topbar,.modal,.mhead,.toast,.scrim{
+      -webkit-backdrop-filter:none;backdrop-filter:none;
+    }
+    .kpi,.panelcard,.tablewrap,.ecard{background:rgba(255,255,255,.96)}
+    .side,.topbar{background:rgba(255,255,255,.98)}
+    .modal,.mhead{background:rgba(255,255,255,.98)}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ CUSTOMER FORM ============ -->
+<section id="customer">
+  <div class="cwrap">
+    <div id="cformView">
+      <div class="chero">
+        <span class="slogo c hide" id="cHeroLogo"></span>
+        <div class="ccamp" id="cCamp">Gym Campaign</div>
+        <div class="cbrand" id="cBrand">SPACE ONLINE</div>
+        <h1>Reserve yours in 30 seconds</h1>
+        <p>Drop your details and our team will reach out on WhatsApp with how to order.</p>
+      </div>
+
+      <div class="cprod" id="cRepCard">
+        <div class="tile" id="cRepTile">O</div>
+        <div style="flex:1;min-width:0">
+          <div class="pname" id="cRepName">Your sales team</div>
+          <div class="pmeta">Your sales advisor</div>
+        </div>
+        <span class="slogo" style="width:42px;height:42px"></span>
+      </div>
+
+      <div class="cprod hide" id="cProdStrip">
+        <div class="tile" id="cProdStripTile">P</div>
+        <div style="min-width:0">
+          <div class="pname" id="cProdStripName"></div>
+          <div class="pmeta" id="cProdStripMeta"></div>
+        </div>
+      </div>
+
+      <form class="cform" id="leadForm" novalidate>
+        <div class="fld">
+          <label>Full name <span class="req">*</span></label>
+          <input class="ctl" name="name" autocomplete="name" placeholder="e.g. Sara Ahmed">
+          <div class="ferr hide"></div>
+        </div>
+        <div class="fld">
+          <label>WhatsApp number <span class="req">*</span></label>
+          <div class="phonewrap">
+            <select class="ctl ccsel" name="cc" id="cCC">
+              <optgroup label="GCC">
+                <option value="+971" selected>🇦🇪 +971 United Arab Emirates</option>
+                <option value="+973">🇧🇭 +973 Bahrain</option>
+                <option value="+965">🇰🇼 +965 Kuwait</option>
+                <option value="+968">🇴🇲 +968 Oman</option>
+                <option value="+974">🇶🇦 +974 Qatar</option>
+                <option value="+966">🇸🇦 +966 Saudi Arabia</option>
+              </optgroup>
+              <optgroup label="Other countries">
+                <option value="+93">🇦🇫 +93 Afghanistan</option>
+                <option value="+213">🇩🇿 +213 Algeria</option>
+                <option value="+61">🇦🇺 +61 Australia</option>
+                <option value="+880">🇧🇩 +880 Bangladesh</option>
+                <option value="+32">🇧🇪 +32 Belgium</option>
+                <option value="+1">🇨🇦 +1 Canada</option>
+                <option value="+86">🇨🇳 +86 China</option>
+                <option value="+20">🇪🇬 +20 Egypt</option>
+                <option value="+251">🇪🇹 +251 Ethiopia</option>
+                <option value="+33">🇫🇷 +33 France</option>
+                <option value="+49">🇩🇪 +49 Germany</option>
+                <option value="+233">🇬🇭 +233 Ghana</option>
+                <option value="+30">🇬🇷 +30 Greece</option>
+                <option value="+91">🇮🇳 +91 India</option>
+                <option value="+62">🇮🇩 +62 Indonesia</option>
+                <option value="+98">🇮🇷 +98 Iran</option>
+                <option value="+964">🇮🇶 +964 Iraq</option>
+                <option value="+353">🇮🇪 +353 Ireland</option>
+                <option value="+39">🇮🇹 +39 Italy</option>
+                <option value="+962">🇯🇴 +962 Jordan</option>
+                <option value="+254">🇰🇪 +254 Kenya</option>
+                <option value="+961">🇱🇧 +961 Lebanon</option>
+                <option value="+60">🇲🇾 +60 Malaysia</option>
+                <option value="+212">🇲🇦 +212 Morocco</option>
+                <option value="+977">🇳🇵 +977 Nepal</option>
+                <option value="+31">🇳🇱 +31 Netherlands</option>
+                <option value="+234">🇳🇬 +234 Nigeria</option>
+                <option value="+92">🇵🇰 +92 Pakistan</option>
+                <option value="+970">🇵🇸 +970 Palestine</option>
+                <option value="+63">🇵🇭 +63 Philippines</option>
+                <option value="+351">🇵🇹 +351 Portugal</option>
+                <option value="+7">🇷🇺 +7 Russia</option>
+                <option value="+65">🇸🇬 +65 Singapore</option>
+                <option value="+27">🇿🇦 +27 South Africa</option>
+                <option value="+34">🇪🇸 +34 Spain</option>
+                <option value="+94">🇱🇰 +94 Sri Lanka</option>
+                <option value="+249">🇸🇩 +249 Sudan</option>
+                <option value="+46">🇸🇪 +46 Sweden</option>
+                <option value="+41">🇨🇭 +41 Switzerland</option>
+                <option value="+963">🇸🇾 +963 Syria</option>
+                <option value="+255">🇹🇿 +255 Tanzania</option>
+                <option value="+66">🇹🇭 +66 Thailand</option>
+                <option value="+216">🇹🇳 +216 Tunisia</option>
+                <option value="+90">🇹🇷 +90 Turkey</option>
+                <option value="+256">🇺🇬 +256 Uganda</option>
+                <option value="+380">🇺🇦 +380 Ukraine</option>
+                <option value="+44">🇬🇧 +44 United Kingdom</option>
+                <option value="+1">🇺🇸 +1 United States</option>
+                <option value="+967">🇾🇪 +967 Yemen</option>
+              </optgroup>
+            </select>
+            <input class="ctl" name="whatsapp" inputmode="tel" autocomplete="tel" placeholder="50 123 4567">
+          </div>
+          <div class="ferr hide"></div>
+        </div>
+        <div class="fld">
+          <label>Email address</label>
+          <input class="ctl" name="email" type="email" autocomplete="email" placeholder="you@email.com (optional)">
+          <div class="ferr hide"></div>
+        </div>
+        <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fld">
+            <label>City / location</label>
+            <input class="ctl" name="city" autocomplete="address-level2" placeholder="Dubai">
+          </div>
+          <div class="fld">
+            <label>Quantity</label>
+            <input class="ctl" name="quantity" type="number" min="1" value="1">
+          </div>
+        </div>
+        <div class="fld" id="cProdFld">
+          <label>Interested product <span class="req">*</span></label>
+          <select class="ctl" name="productId" id="cProdSelect"></select>
+        </div>
+        <div class="fld hide" id="cRepFld">
+          <label>Your sales advisor <span class="req">*</span></label>
+          <select class="ctl" id="cRepSelect"></select>
+          <div class="ferr hide"></div>
+        </div>
+        <div class="fld hide" id="cColorFld">
+          <label>Choose colour <span class="req">*</span></label>
+          <div class="colorgrid" id="cColorGrid"></div>
+          <input type="hidden" name="color" id="cColorVal">
+          <input type="hidden" name="colorModel" id="cColorModel">
+          <div class="ferr hide"></div>
+        </div>
+        <div class="fld">
+          <label>Comments / notes</label>
+          <textarea class="ctl" name="comments" placeholder="Any colour, size or delivery preference?"></textarea>
+        </div>
+        <label class="consent">
+          <input type="checkbox" name="consent">
+          <span>I agree to be contacted by the sales team about this product via WhatsApp, phone or email. <span class="req">*</span></span>
+        </label>
+        <button type="submit" class="submit" id="leadSubmit">Submit my details</button>
+        <div class="cfoot"><span class="lock">🔒</span>Your details are kept private and used only to contact you.</div>
+      </form>
+    </div>
+
+    <div id="cThanksView" class="thanks hide">
+      <div class="chk">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h2>You're on the list!</h2>
+      <p id="cThanksMsg">Thanks, Sara. Our team will message you on WhatsApp shortly about the Momax BS13 1-Vibe Bottle.</p>
+      <button class="ghost" id="cAnother">Submit another response</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ADMIN ============ -->
+<section id="admin">
+
+  <!-- gate -->
+  <div class="gate" id="gate">
+    <div id="gBgImg"></div>
+    <div id="gBgOverlay"></div>
+    <div class="gatebox">
+      <span class="slogo lg"></span>
+      <div class="logo">SPACE LeadFloor</div>
+      <p>Sales console — sign in to manage campaigns &amp; leads</p>
+      <form id="gateForm">
+        <input class="ctl" id="gatePass" type="password" placeholder="Enter passcode" autocomplete="current-password">
+        <button class="submit" type="submit">Open console</button>
+      </form>
+      <div class="syncstat" id="syncStat"><span class="dot"></span><span class="txt">Checking sync…</span></div>
+    </div>
+  </div>
+
+  <!-- shell -->
+  <div class="shell hide" id="shell">
+    <aside class="side">
+      <div class="brand"><div class="logo"><span class="slogo"></span>LeadFloor</div></div>
+      <nav class="nav" id="nav">
+        <button data-view="dashboard" class="active"><span class="ic">📊</span>Dashboard</button>
+        <button data-view="leads"><span class="ic">📥</span>Leads <span class="cnt" id="navLeadCnt">0</span></button>
+        <button data-view="products"><span class="ic">📦</span>Products</button>
+        <button data-view="campaigns"><span class="ic">🎯</span>Campaigns</button>
+        <button data-view="reps"><span class="ic">🧑‍💼</span>Sales reps</button>
+        <button data-view="reports"><span class="ic">📈</span>Reports</button>
+        <button data-view="settings" class="vhide"><span class="ic">⚙️</span>Settings</button>
+      </nav>
+      <div class="foot"><div class="vobadge2" id="voBadge2">👁 View-only access</div><button id="logoutBtn">Sign out</button></div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="logo"><span class="slogo"></span>LeadFloor</div>
+        <span class="vobadge" id="voBadge">👁 View-only access</span>
+        <button class="iconbtn" id="logoutBtn2">⎋</button>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+</section>
+
+<!-- modal + toast -->
+<div class="scrim" id="scrim"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   LeadFloor — single-file lead capture & sales conversion app
+   Data persists via the artifact storage API (per-user).
+   ===================================================================== */
+
+const STATUSES = ["New","Contacted","Interested","Converted","Closed"];
+const STATUS_KEY = {New:"new",Contacted:"contacted",Interested:"interested",Converted:"converted",Closed:"closed"};
+const STATUS_COLOR = {New:"#3B82F6",Contacted:"#8B5CF6",Interested:"#F59E0B",Converted:"#10B981",Closed:"#71777B"};
+const STORE_KEY = "leadfloor:v1";
+
+/* ============================================================
+   OPTIONAL: paste your Google Apps Script webhook URL between the
+   quotes below. Once set, EVERY browser/device that opens this app
+   pulls the shared products, reps, campaigns and leads from your
+   Google Sheet automatically — even before logging in — so your
+   data is the same everywhere and the demo template never shows.
+   Leave blank ("") to set it per-browser in Settings instead.
+   Example: "https://script.google.com/macros/s/AKfy.../exec"
+   ============================================================ */
+const DEFAULT_WEBHOOK = "https://script.google.com/macros/s/AKfycbyUT7vc0CvpdsbzfteE92E4DFRgiwKSjse1zaAFmnK4dse21TZh_SV0NonONExvCVKZlA/exec";
+
+let DB = null;          // {products, reps, campaigns, leads, settings}
+let leadFilters = {q:"",status:"",campaign:"",product:"",rep:"",period:""};
+
+/* ---------- storage helpers ----------
+   Works both in the preview (window.storage) and on a real hosted
+   site like GitHub Pages (browser localStorage). */
+const store = {
+  async get(k){
+    try{ if(window.storage && window.storage.get) return await window.storage.get(k); }catch(e){}
+    const v = localStorage.getItem(k);
+    return (v==null) ? null : {key:k, value:v};
+  },
+  async set(k,v){
+    try{ if(window.storage && window.storage.set) return await window.storage.set(k,v); }catch(e){}
+    localStorage.setItem(k,v); return {key:k, value:v};
+  }
+};
+async function loadDB(){
+  try{
+    const r = await store.get(STORE_KEY);
+    if(r && r.value){ DB = JSON.parse(r.value); }
+  }catch(e){ /* not found */ }
+  if(!DB) DB = seed();
+  // backfill
+  DB.products ||= []; DB.reps ||= []; DB.campaigns ||= []; DB.leads ||= [];
+  DB.settings ||= seed().settings;
+  // The webhook baked into this file (DEFAULT_WEBHOOK) is authoritative.
+  // It ALWAYS overrides whatever a browser may have stored — so every device
+  // connects to the same Google Sheet, even browsers that ran an older
+  // version with an empty/different webhook. No per-device setup, ever.
+  if(DEFAULT_WEBHOOK && DB.settings.webhook !== DEFAULT_WEBHOOK){
+    DB.settings.webhook = DEFAULT_WEBHOOK;
+    await saveDB();
+  }
+}
+async function saveDB(){
+  try{ await store.set(STORE_KEY, JSON.stringify(DB)); }
+  catch(e){ console.error("save failed", e); }
+}
+
+/* ---------- shared config sync (products / reps / campaigns / settings) ----------
+   When the webhook (Google Apps Script) is connected, the whole setup is also
+   saved to a "Config" tab in the Google Sheet and loaded back on every device,
+   so a GitHub-Pages-hosted copy shows the same products/reps/campaigns everywhere. */
+let configApplied = false;
+function applyRemoteConfig(cfg){
+  try{
+    if(typeof cfg === "string") cfg = JSON.parse(cfg);
+    if(!cfg || !cfg.ts) return;
+    // The Google Sheet is the shared source of truth once connected.
+    // Adopt remote config when it is newer than local, OR when local has
+    // never pushed its own config (still the demo seed) — this stops the
+    // demo products from flickering back in on refresh.
+    const localTs = DB.configTs || 0;
+    const localIsSeed = !DB.configPushed;
+    if(localTs > cfg.ts && !localIsSeed) return;   // local genuinely newer → keep it
+    if(Array.isArray(cfg.products))  DB.products  = cfg.products;
+    if(Array.isArray(cfg.reps))      DB.reps      = cfg.reps;
+    if(Array.isArray(cfg.campaigns)) DB.campaigns = cfg.campaigns;
+    if(cfg.settings) DB.settings = Object.assign({}, DB.settings, cfg.settings);
+    DB.configTs = cfg.ts;
+    DB.configPushed = true;       // we now hold real (non-seed) config
+    configApplied = true;
+    saveDB();
+  }catch(e){ /* malformed remote config — ignore */ }
+}
+async function pushConfig(){
+  DB.configTs = Date.now();
+  DB.configPushed = true;        // mark that local config is real, not the seed
+  await saveDB();
+  const url = DB.settings.webhook; if(!url) return;
+  const config = {ts:DB.configTs, products:DB.products, reps:DB.reps, campaigns:DB.campaigns, settings:DB.settings};
+  try{
+    await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"saveConfig", config})});
+  }catch(e){ /* fire-and-forget */ }
+}
+function uid(p){ return p + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-3); }
+
+function seed(){
+  // fixed ids — links generated on one device must resolve on every other
+  const p1="p-bs13", p2="p-qpadx", p3="p-hydro";
+  const r1="r-omar", r2="r-lina";
+  const c1="c-gym", c2="c-mall", c3="c-event";
+  return {
+    products:[
+      {id:p1,name:"Momax BS13 1-Vibe Bottle",model:"BS13",image:"https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=300",link:"https://shop.example.com/momax-bs13-vibe-bottle",price:"AED 149",active:true,
+        colors:[
+          {name:"Black",model:"BS13D",image:"https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=300"},
+          {name:"White",model:"BS13W",image:"https://images.unsplash.com/photo-1523362628745-0c100150b504?w=300"},
+          {name:"Blue",model:"BS13B",image:"https://images.unsplash.com/photo-1610824352934-c10d87b700cc?w=300"}
+        ]},
+      {id:p2,name:"Momax Q.Pad X Wireless Charger",model:"Q.PAD X",image:"",link:"https://shop.example.com/momax-qpad-x",price:"AED 199",active:true,colors:[]},
+      {id:p3,name:"Momax Hydro Smart Tumbler",model:"HYDRO",image:"",link:"https://shop.example.com/momax-hydro-tumbler",price:"AED 179",active:true,colors:[]},
+    ],
+    reps:[
+      {id:r1,name:"Omar Khalid",email:"omar@momax.example.com",whatsapp:"+971501112233",active:true},
+      {id:r2,name:"Lina Saeed",email:"lina@momax.example.com",whatsapp:"+971504445566",active:true},
+    ],
+    campaigns:[
+      {id:c1,name:"Gym Campaign",type:"Gym",source:"gym_fitfirst",repId:r1,active:true},
+      {id:c2,name:"Mall Campaign",type:"Mall",source:"mall_dubaifest",repId:r2,active:true},
+      {id:c3,name:"Event Campaign",type:"Event",source:"event_gitex25",repId:r1,active:true},
+    ],
+    leads:[
+      {id:uid("l"),name:"Sara Ahmed",whatsapp:"+971553334444",email:"sara@email.com",city:"Dubai",productId:p1,quantity:2,comments:"Prefers the blue one",consent:true,campaignId:c1,source:"gym_fitfirst",status:"New",repId:r1,createdAt:Date.now()-1000*60*40},
+      {id:uid("l"),name:"Hassan Noor",whatsapp:"+971557778888",email:"",city:"Sharjah",productId:p2,quantity:1,comments:"",consent:true,campaignId:c2,source:"mall_dubaifest",status:"Contacted",repId:r2,createdAt:Date.now()-1000*60*60*5},
+      {id:uid("l"),name:"Maya Rashid",whatsapp:"+971559990000",email:"maya@email.com",city:"Abu Dhabi",productId:p1,quantity:3,comments:"Bulk for office",consent:true,campaignId:c3,source:"event_gitex25",status:"Converted",repId:r1,createdAt:Date.now()-1000*60*60*26},
+    ],
+    settings:{
+      passcode:"admin",
+      teamPasscode:"team",
+      business:"SPACE ONLINE",
+      adminEmail:"sameer@space.ae",
+      adminWhatsapp:"+971568412975",
+      waTemplate:"Hi {name}, thank you for your interest in the {product}. You can place your order using the link below:\n{link}\nPlease let us know if you need any assistance.",
+      webhook:"https://script.google.com/macros/s/AKfycbw6Iv3LzjqKdfDHXlmGc_6MJ1DlyPzIjftiDnipu8kRcbIoLppWpM4mh-ddkflbj8lF/exec"
+    }
+  };
+}
+
+/* ---------- small utils ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Always show WhatsApp/phone numbers with a leading + for clarity
+function fmtPhone(v){
+  let s = String(v??"").trim();
+  if(!s) return "";
+  if(s[0]==="+") return s;
+  let digits = s.replace(/[^\d]/g,"");
+  if(!digits) return s;
+  if(digits.slice(0,2)==="00") digits = digits.slice(2);   // 00971… → 971…
+  return "+"+digits;
+}
+const prod = id => DB.products.find(p=>p.id===id);
+const rep  = id => DB.reps.find(r=>r.id===id);
+const camp = id => DB.campaigns.find(c=>c.id===id);
+function initials(s){ return (s||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
+function leadTime(l){
+  const t = Number(l.createdAt);
+  return Number.isFinite(t) ? t : null;
+}
+function timeAgo(t){
+  const s=(Date.now()-t)/1000;
+  if(s<60)return"just now"; if(s<3600)return Math.floor(s/60)+"m ago";
+  if(s<86400)return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago";
+}
+function toast(msg,ok){
+  const t=$("#toast"); t.textContent=msg; t.className="toast on"+(ok?" ok":"");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className="toast",2200);
+}
+function buildLink(campaignId,productId){
+  const base = location.origin + location.pathname;
+  const h = `#/c?camp=${encodeURIComponent(campaignId||"")}${productId?("&prod="+encodeURIComponent(productId)):""}`;
+  return base + h;
+}
+/* ---------- lead field accessors (work for both local + Sheet leads) ---------- */
+function pName(l){ return l.productName || prod(l.productId)?.name || "—"; }
+function pModel(l){
+  if(l.productModel) return l.productModel;
+  const p = prod(l.productId);
+  if(p){
+    const cv = (Array.isArray(p.colors)?p.colors:[]).find(c=>c.name===l.color);
+    if(cv && cv.model) return cv.model;
+    return p.model || "";
+  }
+  return "";
+}
+function cName(l){ return l.campaignName || camp(l.campaignId)?.name || "—"; }
+function rName(l){ return l.repName || rep(l.repId)?.name || "—"; }
+function pLink(l){
+  const p = prod(l.productId) || DB.products.find(p=>p.name && p.name===l.productName);
+  return p?.link || "";
+}
+function waLink(lead){
+  const tpl = DB.settings.waTemplate||"";
+  const msg = tpl.replace(/{name}/g,lead.name||"there")
+                 .replace(/{product}/g, pName(lead)==="—"?"our product":pName(lead) + (lead.color?(" ("+lead.color+")"):""))
+                 .replace(/{color}/g, lead.color||"")
+                 .replace(/{link}/g, pLink(lead));
+  const num = (lead.whatsapp||"").replace(/[^\d]/g,"");
+  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+}
+
+/* ---------- LIVE read-back from the Google Sheet (via JSONP) ---------- */
+let LIVE = null;        // array of normalized leads from the Sheet, or null if not loaded
+let liveLoading = false;
+function leadsData(){ return LIVE || DB.leads; }   // Sheet is source of truth when loaded
+function normalizeSheetLead(o){
+  const get=(k)=>o[k]!==undefined?o[k]:"";
+  const received = get("Received");
+  let ts = Date.now();
+  if(received){ const d=new Date(received); if(!isNaN(d)) ts=d.getTime(); }
+  return {
+    id: String(get("ID")||get("id")||uid("l")),
+    name:get("Name"), whatsapp:String(get("WhatsApp")||""), email:get("Email"), city:get("City"),
+    productName:get("Product"), productModel:get("Model"), color:get("Color"), quantity:get("Quantity"),
+    comments:get("Comments"), campaignName:get("Campaign"), source:get("Source"),
+    status:get("Status")||"New", repName:get("Rep"),
+    consent: String(get("Consent")).toLowerCase()==="yes",
+    createdAt: ts, _sheet:true
+  };
+}
+function fetchLive(){
+  return new Promise((resolve)=>{
+    const url = DB.settings.webhook;
+    if(!url){ resolve(null); return; }
+    const cb = "__lf_"+Math.random().toString(36).slice(2);
+    const s = document.createElement("script");
+    let done=false;
+    const finish=(v)=>{ if(done)return; done=true; try{delete window[cb];}catch(e){} s.remove(); resolve(v); };
+    window[cb] = (data)=>{
+      if(data && data.config) applyRemoteConfig(data.config);
+      const rows = (data && data.leads) ? data.leads.map(normalizeSheetLead) : [];
+      rows.sort((a,b)=>b.createdAt-a.createdAt);
+      finish(rows);
+    };
+    s.onerror = ()=>finish(null);
+    s.src = url + (url.includes("?")?"&":"?") + "callback="+cb+"&t="+Date.now();
+    document.body.appendChild(s);
+    setTimeout(()=>finish(null), 12000);  // timeout fallback
+  });
+}
+async function refreshLive(){
+  if(liveLoading) return;
+  liveLoading = true;
+  const rows = await fetchLive();
+  liveLoading = false;
+  if(rows){ LIVE = rows; }
+  return rows;
+}
+// Push a status change back to the Sheet
+async function pushStatus(leadId, status){
+  const url = DB.settings.webhook;
+  if(!url) return;
+  try{
+    await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"updateStatus", id:leadId, status})});
+  }catch(e){}
+}
+
+/* =====================================================================
+   ROUTING — decide customer form vs admin
+   ===================================================================== */
+function route(){
+  const h = location.hash || "";
+  if(h.startsWith("#/c")){ showCustomer(h); }
+  else { showAdmin(); }
+}
+function showCustomer(hash){
+  $("#admin").classList.remove("on");
+  $("#customer").classList.add("on");
+  const params = new URLSearchParams(hash.split("?")[1]||"");
+  renderCustomer(params.get("camp"), params.get("prod"), params.get("lock")==="1");
+}
+function showAdmin(){
+  $("#customer").classList.remove("on");
+  $("#admin").classList.add("on");
+}
+
+/* =====================================================================
+   CUSTOMER FORM
+   ===================================================================== */
+let curCampaignId=null, curLocked=false;
+function updateAdvisorCard(r){
+  const repCard = $("#cRepCard"), heroLogo = $("#cHeroLogo");
+  if(r && r.name){
+    repCard.style.display = ""; heroLogo.classList.add("hide");
+    $("#cRepName").textContent = r.name;
+    const tile = $("#cRepTile");
+    if(r.image){
+      tile.innerHTML = `<img src="${esc(r.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" alt="" onerror="this.parentNode.textContent='${esc(initials(r.name))}'">`;
+    } else {
+      tile.textContent = initials(r.name);
+    }
+  } else {
+    repCard.style.display = "none"; heroLogo.classList.remove("hide");
+  }
+}
+function renderCustomer(campaignId, productId, lock){
+  // Resolve the requested campaign. IMPORTANT: if a campaign ID was supplied
+  // (from a QR/link) but isn't loaded yet, do NOT fall back to some other
+  // campaign — that would show the wrong sales rep. Keep the requested id and
+  // let the post-sync re-render fill it in once config arrives.
+  let c = camp(campaignId);
+  if(!c && !campaignId && !lock){ c = DB.campaigns.find(x=>x.active) || DB.campaigns[0]; }
+  curCampaignId = campaignId || (c ? c.id : null);
+  curLocked = !!(lock && productId && prod(productId));
+  $("#cCamp").textContent = c ? c.name : (campaignId ? "…" : "Direct");
+  $("#cBrand").textContent = DB.settings.business || "Our Store";
+
+
+  // product dropdown — respects the campaign's product scope (all vs selected)
+  let actives = DB.products.filter(p=>p.active);
+  if(c && c.productMode==="selected" && Array.isArray(c.productIds) && c.productIds.length){
+    const allow = new Set(c.productIds);
+    const scoped = actives.filter(p=>allow.has(p.id));
+    if(scoped.length) actives = scoped;   // fall back to all if the selection is empty/stale
+  }
+  const sel = $("#cProdSelect");
+  sel.innerHTML = actives.map(p=>`<option value="${p.id}">${esc(p.name)}${p.price?(" — "+esc(p.price)):""}</option>`).join("")
+               || `<option value="">No products available</option>`;
+  const chosen = (productId && prod(productId)) ? productId : (actives[0]?actives[0].id:"");
+  if(chosen) sel.value = chosen;
+  sel.onchange = syncProdCard;
+
+  // locked-product mode: product is fixed, customer picks their advisor
+  const prodFld = $("#cProdFld"), repFld = $("#cRepFld"), strip = $("#cProdStrip");
+  if(curLocked){
+    const p = prod(productId);
+    if(!sel.querySelector(`option[value="${productId}"]`)){
+      sel.innerHTML += `<option value="${esc(p.id)}">${esc(p.name)}</option>`;
+    }
+    sel.value = productId;
+    prodFld.classList.add("hide");
+    // product strip
+    strip.classList.remove("hide");
+    $("#cProdStripName").textContent = p.name;
+    $("#cProdStripMeta").textContent = p.price || "Reserved for you";
+    const st = $("#cProdStripTile");
+    if(p.image){
+      st.innerHTML = `<img src="${esc(p.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" alt="" onerror="this.parentNode.textContent='${esc(initials(p.name))}'">`;
+    } else { st.textContent = initials(p.name); }
+    // advisor dropdown — customer must choose manually, no default
+    const reps = DB.reps.filter(r=>r.active);
+    const repSel = $("#cRepSelect");
+    repSel.innerHTML = `<option value="" disabled selected>Select your sales advisor…</option>` +
+      reps.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("");
+    repFld.classList.remove("hide");
+    repSel.onchange = ()=>{
+      updateAdvisorCard(rep(repSel.value));
+      repSel.style.borderColor="";
+      const err = repFld.querySelector(".ferr"); if(err) err.classList.add("hide");
+    };
+    updateAdvisorCard(null);
+  } else {
+    prodFld.classList.remove("hide");
+    repFld.classList.add("hide");
+    strip.classList.add("hide");
+    updateAdvisorCard(rep(c ? c.repId : null));
+  }
+
+  // reset views
+  $("#cformView").classList.remove("hide");
+  $("#cThanksView").classList.add("hide");
+  $("#leadForm").reset();
+  if(chosen) sel.value=chosen;
+  if(curLocked){
+    sel.value = productId;
+    const rs = $("#cRepSelect");
+    rs.selectedIndex = 0;
+    updateAdvisorCard(null);
+  }
+  $("#cCC").value = "+971";
+  initCCDisplay();
+  document.querySelector('#leadForm [name=quantity]').value=1;
+  syncProdCard();
+}
+/* Country code select: show only flag + code when closed,
+   full country names while the list is open */
+function initCCDisplay(){
+  const sel = $("#cCC"); if(!sel) return;
+  if(!sel._ccInit){
+    sel._ccInit = true;
+    [...sel.options].forEach(o=>o.dataset.full = o.textContent.trim());
+    const full = ()=>[...sel.options].forEach(o=>o.textContent = o.dataset.full);
+    sel._ccShort = ()=>{
+      const o = sel.selectedOptions[0];
+      if(o) o.textContent = o.dataset.full.split(" ").slice(0,2).join(" ");
+    };
+    sel.addEventListener("mousedown", full);
+    sel.addEventListener("focus", full);
+    sel.addEventListener("change", ()=>sel._ccShort());
+    sel.addEventListener("blur", ()=>sel._ccShort());
+  }
+  sel._ccShort();
+}
+function syncProdCard(){
+  renderColorPicker(prod($("#cProdSelect").value));
+}
+function renderColorPicker(p){
+  const fld = $("#cColorFld"), grid = $("#cColorGrid"), val = $("#cColorVal"), mdl = $("#cColorModel");
+  const colors = (p && Array.isArray(p.colors)) ? p.colors.filter(c=>c.name) : [];
+  val.value = ""; mdl.value = "";
+  if(!colors.length){ fld.classList.add("hide"); grid.innerHTML=""; return; }
+  fld.classList.remove("hide");
+  grid.innerHTML = colors.map((c,i)=>`
+    <div class="swatch" data-color="${esc(c.name)}" data-model="${esc(c.model||"")}" data-i="${i}">
+      ${c.image ? `<img class="img" src="${esc(c.image)}" alt="${esc(c.name)}" onerror="this.style.display='none'">`
+                : `<div class="dot" style="background:${swatchColor(c.name)}"></div>`}
+      <div class="cn">${esc(c.name)}</div>
+    </div>`).join("");
+  grid.querySelectorAll(".swatch").forEach(s=>s.addEventListener("click",()=>{
+    grid.querySelectorAll(".swatch").forEach(x=>x.classList.remove("sel"));
+    s.classList.add("sel"); val.value = s.dataset.color; mdl.value = s.dataset.model||"";
+  }));
+}
+function swatchColor(name){
+  const map={black:"#222",white:"#eee",blue:"#2b6cff",red:"#e23",green:"#16a34a",grey:"#888",gray:"#888",
+    silver:"#c8c8c8",gold:"#d4af37",pink:"#f7a",purple:"#8b5cf6",orange:"#ff7a1f",yellow:"#facc15",navy:"#1e3a8a"};
+  return map[(name||"").toLowerCase().trim()] || "#bbb";
+}
+function fieldError(form,name,msg){
+  const input = form.querySelector(`[name=${name}]`);
+  const wrap = input.closest(".fld") || input.parentElement;
+  const err = wrap.querySelector(".ferr");
+  const visible = wrap.querySelector("input:not([type=hidden]),select,textarea") || input;
+  if(msg){ if(err){err.textContent=msg; err.classList.remove("hide");} visible.style.borderColor="var(--err)"; }
+  else { if(err) err.classList.add("hide"); visible.style.borderColor=""; }
+}
+$("#leadForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const form = e.target;
+  const f = Object.fromEntries(new FormData(form).entries());
+  let ok=true;
+  if(!f.name||!f.name.trim()){ fieldError(form,"name","Please enter your name"); ok=false; } else fieldError(form,"name");
+  const localDigits=(f.whatsapp||"").replace(/[^\d]/g,"");
+  if(localDigits.length<6){ fieldError(form,"whatsapp","Enter a valid WhatsApp number"); ok=false; } else fieldError(form,"whatsapp");
+  if(f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)){ fieldError(form,"email","Enter a valid email"); ok=false; } else fieldError(form,"email");
+  // colour required only if the product has colours
+  const selProd = prod(f.productId);
+  const hasColors = selProd && Array.isArray(selProd.colors) && selProd.colors.filter(c=>c.name).length;
+  if(hasColors && !f.color){ fieldError(form,"color","Please choose a colour"); ok=false; } else if(hasColors) fieldError(form,"color");
+  if(curLocked){
+    const rs = $("#cRepSelect"), rw = $("#cRepFld"), re = rw.querySelector(".ferr");
+    if(!rs.value){
+      if(re){ re.textContent="Please select your sales advisor"; re.classList.remove("hide"); }
+      rs.style.borderColor="var(--err)"; ok=false;
+    } else {
+      if(re) re.classList.add("hide");
+      rs.style.borderColor="";
+    }
+  }
+  if(!form.querySelector("[name=consent]").checked){ toast("Please tick the consent box to continue"); ok=false; }
+  if(!ok) return;
+
+  // full international number, e.g. +97150...
+  const fullNumber = (f.cc||"+971") + localDigits.replace(/^0+/,"");
+
+  const c = camp(curCampaignId);
+  const lead = {
+    id:uid("l"), name:f.name.trim(), whatsapp:fullNumber,
+    email:(f.email||"").trim(), city:(f.city||"").trim(),
+    productId:f.productId, color:(f.color||"").trim(),
+    productModel:(f.colorModel||selProd?.model||"").trim(), quantity:Number(f.quantity)||1,
+    comments:(f.comments||"").trim(), consent:true,
+    campaignId:curCampaignId, source:c?c.source:"direct",
+    status:"New",
+    repId: curLocked ? ($("#cRepSelect").value||null) : (c?c.repId:null),
+    createdAt:Date.now()
+  };
+  DB.leads.unshift(lead);
+  await saveDB();
+  await notify(lead);            // attempts webhook if configured
+
+  // thank-you
+  const p = prod(lead.productId);
+  $("#cThanksMsg").textContent =
+    `Thanks, ${lead.name.split(" ")[0]}. Our team will message you on WhatsApp shortly about the ${p?p.name:"product"}${lead.color?(" ("+lead.color+")"):""}.`;
+  $("#cformView").classList.add("hide");
+  $("#cThanksView").classList.remove("hide");
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+$("#cAnother").addEventListener("click",()=>renderCustomer(curCampaignId, $("#cProdSelect").value, curLocked));
+
+async function notify(lead){
+  // Real email/WhatsApp push needs a server. If a webhook is set, POST the lead there.
+  const url = DB.settings.webhook;
+  if(!url) return;
+  const p = prod(lead.productId), c = camp(lead.campaignId), r = rep(lead.repId);
+  const payload = {
+    ...lead,
+    productName: p?.name || "",
+    productModel: lead.productModel || p?.model || "",
+    color: lead.color || "",
+    purchaseLink: p?.link || "",
+    campaignName: c?.name || "",
+    repName: r?.name || "",
+    repEmail: r?.email || "",
+    adminEmail: DB.settings.adminEmail || "",
+    business: DB.settings.business || ""
+  };
+  try{
+    // text/plain keeps it a "simple" request so Google Apps Script accepts it without a CORS preflight.
+    await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify(payload)});
+  }catch(e){ /* CORS / offline — fire-and-forget */ }
+}
+
+/* =====================================================================
+   ADMIN — gate
+   ===================================================================== */
+let ROLE = "admin";   // "admin" = full access; "viewer" = team member (read-only except Dashboard/Campaigns)
+function isViewer(){ return ROLE === "viewer"; }
+
+$("#gateForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const v = $("#gatePass").value;
+  const adminPass = DB.settings.passcode || "admin";
+  const teamPass  = DB.settings.teamPasscode || "team";
+  if(v === adminPass){
+    ROLE = "admin";
+  } else if(teamPass && v === teamPass){
+    ROLE = "viewer";
+  } else {
+    toast("Wrong passcode");
+    $("#gatePass").value="";
+    return;
+  }
+  document.body.classList.toggle("role-viewer", ROLE==="viewer");
+  $("#gate").classList.add("hide");
+  $("#shell").classList.remove("hide");
+  navTo("dashboard");
+});
+["logoutBtn","logoutBtn2"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener("click",()=>{
+    ROLE="admin"; document.body.classList.remove("role-viewer");
+    $("#shell").classList.add("hide"); $("#gate").classList.remove("hide"); $("#gatePass").value="";
+  });
+});
+
+/* nav */
+$("#nav").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-view]"); if(!b)return; navTo(b.dataset.view);
+});
+let curView = "dashboard";
+function navTo(view){
+  // Settings is admin-only — never render it (or its passcodes) for team users
+  if(view==="settings" && isViewer()){ view="dashboard"; }
+  curView = view;
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  $("#navLeadCnt").textContent = leadsData().length;
+  const C = $("#content");
+  const fn = ({dashboard:viewDashboard,leads:viewLeads,products:viewProducts,campaigns:viewCampaigns,
+    reps:viewReps,reports:viewReports,settings:viewSettings}[view]||viewDashboard);
+  fn(C);
+  $(".content")?.scrollTo?.(0,0);
+  // pull the latest leads from the Google Sheet for views that display them
+  if(["dashboard","leads","reports"].includes(view)){
+    refreshLive().then(rows=>{
+      if(rows){ $("#navLeadCnt").textContent = leadsData().length; fn(C); }
+    });
+  }
+}
+
+/* ---- LIVE AUTO-REFRESH ----
+   Every 30s, while the admin console is open and unlocked, pull the
+   latest leads + config from the Google Sheet. New submissions appear
+   on the dashboard automatically; product/rep/campaign edits made on
+   another device arrive too (config rides along in the same fetch).
+   Pauses while a modal is open (so editing is never interrupted) and
+   while the tab is in the background. */
+const LIVE_POLL_MS = 30000;
+let lastPoll = 0;
+async function livePollTick(){
+  if(document.hidden) return;                              // tab in background
+  if(!$("#admin").classList.contains("on")) return;        // customer form open
+  if($("#gate") && !$("#gate").classList.contains("hide")) return; // not logged in
+  if($("#scrim").classList.contains("on")) return;         // modal open — don't disturb
+  if(Date.now()-lastPoll < LIVE_POLL_MS-1000) return;
+  lastPoll = Date.now();
+  const before = LIVE ? JSON.stringify(LIVE.map(l=>l.id+l.status)) : "";
+  const rows = await refreshLive();
+  if(!rows) return;
+  const after = JSON.stringify(rows.map(l=>l.id+l.status));
+  $("#navLeadCnt").textContent = leadsData().length;
+  // re-render only if something actually changed, and only data views
+  if(after!==before && ["dashboard","leads","reports"].includes(curView)){
+    const fn = ({dashboard:viewDashboard,leads:viewLeads,reports:viewReports})[curView];
+    if(fn && !$("#scrim").classList.contains("on")) fn($("#content"));
+  }
+}
+setInterval(livePollTick, 5000);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) livePollTick(); });
+
+/* =====================================================================
+   DASHBOARD
+   ===================================================================== */
+function counts(){
+  const data = leadsData();
+  const c={total:data.length}; STATUSES.forEach(s=>c[s]=0);
+  data.forEach(l=>c[l.status]=(c[l.status]||0)+1);
+  return c;
+}
+function liveBadge(){
+  return LIVE ? `<span class="livedot">● Live from Google Sheet</span>`
+              : `<span class="livedot off">○ Local view — connect webhook to sync</span>`;
+}
+function viewDashboard(C){
+  const c=counts();
+  const convRate = c.total? Math.round((c.Converted/c.total)*100):0;
+  const today = leadsData().filter(l=>Date.now()-l.createdAt<86400000).length;
+  const max = Math.max(1,...STATUSES.map(s=>c[s]));
+
+  C.innerHTML = `
+   <div class="phead">
+     <div><h1>Dashboard</h1><div class="sub">${esc(DB.settings.business)} · live lead overview &nbsp; ${liveBadge()}</div></div>
+     <button class="btn sec" id="refreshBtn">↻ Refresh</button>
+   </div>
+   <div class="kpis">
+     ${kpi("Total leads",c.total,"#FF5A1F",today+" today")}
+     ${kpi("New / unworked",c.New,"#3B82F6","awaiting first contact")}
+     ${kpi("Converted",c.Converted,"#10B981","closed-won")}
+     ${kpi("Conversion rate",convRate+"%","#8B5CF6",c.Converted+" of "+c.total)}
+   </div>
+   <div class="grid2">
+     <div class="panelcard">
+       <h3>Conversion funnel</h3>
+       ${STATUSES.map(s=>`
+         <div class="funnel-row">
+           <div class="nm">${s}</div>
+           <div class="track"><div class="fill" style="width:${(c[s]/max*100)||0}%;background:${STATUS_COLOR[s]}">${c[s]||""}</div></div>
+           <div class="pct">${c.total?Math.round(c[s]/c.total*100):0}%</div>
+         </div>`).join("")}
+     </div>
+     <div class="panelcard">
+       <h3>Leads by campaign</h3>
+       ${campaignBreakdown()}
+     </div>
+   </div>
+   <div class="panelcard">
+     <h3>Recent leads</h3>
+     ${recentLeadsTable()}
+   </div>`;
+  $("#refreshBtn").addEventListener("click",async()=>{ toast("Refreshing…"); LIVE=null; await refreshLive(); navTo("dashboard"); });
+  C.querySelectorAll("[data-wa]").forEach(b=>b.addEventListener("click",()=>window.open(b.dataset.wa,"_blank")));
+}
+function kpi(lab,num,color,delta){
+  return `<div class="kpi"><div class="bar" style="background:${color}"></div>
+    <div class="lab">${lab}</div><div class="num">${num}</div><div class="delta">${delta}</div></div>`;
+}
+function campaignBreakdown(){
+  const data = leadsData();
+  if(!DB.campaigns.length) return `<div class="sub" style="color:var(--mut)">No campaigns yet.</div>`;
+  const total=data.length||1;
+  return DB.campaigns.map(cp=>{
+    const n=data.filter(l=> (l.campaignId===cp.id) || (cName(l)===cp.name) ).length;
+    return `<div class="funnel-row">
+      <div class="nm" title="${esc(cp.name)}">${esc(cp.name)}</div>
+      <div class="track"><div class="fill" style="width:${n/total*100}%;background:var(--signal)">${n||""}</div></div>
+      <div class="pct">${Math.round(n/total*100)}%</div></div>`;
+  }).join("");
+}
+function recentLeadsTable(){
+  const rows=leadsData().slice(0,6);
+  if(!rows.length) return emptyBlock("📭","No leads yet","Share a campaign link to start collecting.");
+  return `<div class="tscroll"><table><thead><tr>
+     <th>Customer</th><th>Product</th><th>Campaign</th><th>Status</th><th>When</th><th></th></tr></thead><tbody>
+     ${rows.map(l=>`<tr>
+        <td><div class="lname">${esc(l.name)}</div><div class="lsub">${esc(fmtPhone(l.whatsapp))}</div></td>
+        <td>${esc(pName(l))}${l.color?` <span class="lsub">· ${esc(l.color)}</span>`:""}</td>
+        <td>${esc(cName(l))}</td>
+        <td>${badge(l.status)}</td>
+        <td class="lsub">${timeAgo(l.createdAt)}</td>
+        <td><a class="wabtn" data-wa="${esc(waLink(l))}" target="_blank">${waIcon()} WhatsApp</a></td>
+      </tr>`).join("")}
+   </tbody></table></div>`;
+}
+function badge(s){ return `<span class="badge b-${STATUS_KEY[s]}">${s}</span>`; }
+function waIcon(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.2-1.4A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-1-.3-1.6-.6-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.4.5c-.2.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.5.3.1.2.1.7-.1 1.5z"/></svg>`; }
+function emptyBlock(ic,big,sub){ return `<div class="empty"><div class="ico" style="font-size:34px">${ic}</div><div class="big">${big}</div><div>${sub}</div></div>`; }
+
+/* =====================================================================
+   LEADS
+   ===================================================================== */
+function viewLeads(C){
+  C.innerHTML=`
+   <div class="phead">
+     <div><h1>Leads</h1><div class="sub">${leadsData().length} total · ${liveBadge()}</div></div>
+     <div style="display:flex;gap:8px"><button class="btn sec" id="refreshBtn">↻ Refresh</button><button class="btn sec" id="exportBtn">⤓ Export CSV</button></div>
+   </div>
+   <div class="toolbar">
+     <div class="search">
+       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+       <input id="lq" placeholder="Search name, number, email, city…" value="${esc(leadFilters.q)}">
+     </div>
+     <select class="fsel" id="fStatus"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${leadFilters.status===s?"selected":""}>${s}</option>`).join("")}</select>
+     <select class="fsel" id="fCamp"><option value="">All campaigns</option>${DB.campaigns.map(c=>`<option value="${c.id}" ${leadFilters.campaign===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select>
+     <select class="fsel" id="fProd"><option value="">All products</option>${DB.products.map(p=>`<option value="${p.id}" ${leadFilters.product===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select>
+     <select class="fsel" id="fRep"><option value="">All reps</option>${DB.reps.map(r=>`<option value="${r.id}" ${leadFilters.rep===r.id?"selected":""}>${esc(r.name)}</option>`).join("")}</select>
+     <select class="fsel" id="fPeriod">
+       ${[["","All dates"],["today","Today"],["yesterday","Yesterday"],["7d","Last 7 days"],["30d","Last 30 days"],["month","This month"],["lastmonth","Last month"],["year","This year"]].map(([v,t])=>`<option value="${v}" ${leadFilters.period===v?"selected":""}>${t}</option>`).join("")}
+     </select>
+   </div>
+   <div id="leadsTable"></div>`;
+  $("#lq").addEventListener("input",e=>{leadFilters.q=e.target.value;renderLeadsTable();});
+  $("#fStatus").addEventListener("change",e=>{leadFilters.status=e.target.value;renderLeadsTable();});
+  $("#fCamp").addEventListener("change",e=>{leadFilters.campaign=e.target.value;renderLeadsTable();});
+  $("#fProd").addEventListener("change",e=>{leadFilters.product=e.target.value;renderLeadsTable();});
+  $("#fRep").addEventListener("change",e=>{leadFilters.rep=e.target.value;renderLeadsTable();});
+  $("#fPeriod").addEventListener("change",e=>{leadFilters.period=e.target.value;renderLeadsTable();});
+  $("#exportBtn").addEventListener("click",exportCSV);
+  $("#refreshBtn").addEventListener("click",async()=>{ toast("Refreshing…"); LIVE=null; await refreshLive(); navTo("leads"); });
+  renderLeadsTable();
+}
+function filteredLeads(){
+  const q=leadFilters.q.toLowerCase().trim();
+  const fCampName = leadFilters.campaign ? camp(leadFilters.campaign)?.name : "";
+  const fProdName = leadFilters.product ? prod(leadFilters.product)?.name : "";
+  const fRepName  = leadFilters.rep ? rep(leadFilters.rep)?.name : "";
+  const period = leadFilters.period;
+  let from = null, to = null;
+  if(period){
+    const now = new Date();
+    const startOfDay = d => { const x=new Date(d); x.setHours(0,0,0,0); return x.getTime(); };
+    const today0 = startOfDay(now);
+    if(period==="today"){ from=today0; }
+    else if(period==="yesterday"){ from=today0-864e5; to=today0; }
+    else if(period==="7d"){ from=today0-6*864e5; }
+    else if(period==="30d"){ from=today0-29*864e5; }
+    else if(period==="month"){ from=new Date(now.getFullYear(),now.getMonth(),1).getTime(); }
+    else if(period==="lastmonth"){ from=new Date(now.getFullYear(),now.getMonth()-1,1).getTime(); to=new Date(now.getFullYear(),now.getMonth(),1).getTime(); }
+    else if(period==="year"){ from=new Date(now.getFullYear(),0,1).getTime(); }
+  }
+  return leadsData().filter(l=>{
+    if(leadFilters.status && l.status!==leadFilters.status) return false;
+    if(leadFilters.campaign && !(l.campaignId===leadFilters.campaign || cName(l)===fCampName)) return false;
+    if(leadFilters.product && !(l.productId===leadFilters.product || pName(l)===fProdName)) return false;
+    if(leadFilters.rep && !(l.repId===leadFilters.rep || rName(l)===fRepName)) return false;
+    if(from!==null || to!==null){
+      const t = leadTime(l);
+      if(t===null) return false;
+      if(from!==null && t<from) return false;
+      if(to!==null && t>=to) return false;
+    }
+    if(q){
+      const hay=[l.name,l.whatsapp,l.email,l.city,pName(l),pModel(l),l.color].join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function renderLeadsTable(){
+  const rows=filteredLeads();
+  const el=$("#leadsTable");
+  if(!rows.length){
+    el.innerHTML=`<div class="tablewrap">${emptyBlock("🔍","No matching leads","Try clearing filters or share a campaign link to collect more.")}</div>`;
+    return;
+  }
+  el.innerHTML=`<div class="tablewrap"><div class="tscroll"><table><thead><tr>
+     <th>Customer</th><th>Product</th><th>Colour</th><th>Qty</th><th>Campaign</th><th>Rep</th><th>Status</th><th>Reach out</th><th></th>
+   </tr></thead><tbody>
+   ${rows.map(l=>`<tr data-id="${esc(l.id)}">
+     <td>
+       <div class="lname">${esc(l.name)}</div>
+       <div class="lsub">${esc(fmtPhone(l.whatsapp))}${l.email?(" · "+esc(l.email)):""}</div>
+       <div class="lsub">${esc(l.city||"")} · ${timeAgo(l.createdAt)}</div>
+     </td>
+     <td>${esc(pName(l))}${pModel(l)?`<div class="lsub">${esc(pModel(l))}</div>`:""}</td>
+     <td>${l.color?esc(l.color):'<span class="lsub">—</span>'}</td>
+     <td class="mono">${esc(l.quantity)}</td>
+     <td>${esc(cName(l))}<div class="lsub">${esc(l.source||"")}</div></td>
+     <td>${esc(rName(l))}</td>
+     <td>
+       <select class="stsel" data-status="${esc(l.id)}">
+         ${STATUSES.map(s=>`<option ${l.status===s?"selected":""}>${s}</option>`).join("")}
+       </select>
+     </td>
+     <td><a class="wabtn" href="${esc(waLink(l))}" target="_blank">${waIcon()} WhatsApp</a></td>
+     <td class="chiprow">
+       <button class="iconbtn" data-view-lead="${esc(l.id)}" title="View details">👁</button>
+     </td>
+   </tr>`).join("")}
+   </tbody></table></div></div>`;
+
+  el.querySelectorAll("[data-status]").forEach(s=>s.addEventListener("change",async e=>{
+    const id=e.target.dataset.status, status=e.target.value;
+    await setLeadStatus(id,status);
+    toast(`Status → ${status}`,true);
+  }));
+  el.querySelectorAll("[data-view-lead]").forEach(b=>b.addEventListener("click",()=>leadModal(b.dataset.viewLead)));
+}
+async function setLeadStatus(id,status){
+  const live = LIVE && LIVE.find(x=>String(x.id)===String(id));
+  if(live){ live.status=status; await pushStatus(id,status); }
+  const local = DB.leads.find(x=>String(x.id)===String(id));
+  if(local){ local.status=status; await saveDB(); }
+}
+function leadModal(id){
+  const l=leadsData().find(x=>String(x.id)===String(id)); if(!l)return;
+  openModal(`
+    <div class="mhead"><h3>${esc(l.name)}</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;font-size:13.5px">
+        ${detail("WhatsApp",fmtPhone(l.whatsapp))}
+        ${detail("Email",l.email||"—")}
+        ${detail("City",l.city||"—")}
+        ${detail("Quantity",l.quantity)}
+        ${detail("Product",pName(l))}
+        ${detail("Model",pModel(l)||"—")}
+        ${detail("Colour",l.color||"—")}
+        ${detail("Status",l.status)}
+        ${detail("Campaign",cName(l))}
+        ${detail("Source",l.source||"—")}
+        ${detail("Assigned rep",rName(l))}
+        ${detail("Received",new Date(l.createdAt).toLocaleString())}
+      </div>
+      ${l.comments?`<div class="fld" style="margin-top:14px"><label style="display:flex;align-items:center;gap:6px">Comments <button class="fcopy" data-copy="${esc(l.comments)}" title="Copy comments">⧉</button></label><div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13.5px">${esc(l.comments)}</div></div>`:""}
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn sec" id="copyLead">⧉ Copy all details</button>
+        <a class="wabtn" style="display:inline-flex" href="${esc(waLink(l))}" target="_blank">${waIcon()} Message on WhatsApp</a>
+      </div>
+    </div>`);
+  // per-field copy buttons
+  $("#modal").querySelectorAll(".fcopy").forEach(btn=>btn.addEventListener("click",async(e)=>{
+    e.preventDefault();
+    const text = btn.dataset.copy || "";
+    const done = ()=>{ const o=btn.textContent; btn.textContent="✓"; btn.classList.add("ok"); setTimeout(()=>{ btn.textContent=o; btn.classList.remove("ok"); },1200); };
+    try{ await navigator.clipboard.writeText(text); done(); }
+    catch(_){ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch(__){} document.body.removeChild(ta); }
+  }));
+  $("#copyLead")?.addEventListener("click",async()=>{
+    const lines = [
+      `Name: ${l.name||"—"}`,
+      `WhatsApp: ${fmtPhone(l.whatsapp)||"—"}`,
+      `Email: ${l.email||"—"}`,
+      `City: ${l.city||"—"}`,
+      `Quantity: ${l.quantity||"—"}`,
+      `Product: ${pName(l)||"—"}`,
+      `Model: ${pModel(l)||"—"}`,
+      `Colour: ${l.color||"—"}`,
+      `Status: ${l.status||"—"}`,
+      `Campaign: ${cName(l)||"—"}`,
+      `Source: ${l.source||"—"}`,
+      `Assigned rep: ${rName(l)||"—"}`,
+      `Received: ${new Date(l.createdAt).toLocaleString()}`,
+      l.comments?`Comments: ${l.comments}`:null
+    ].filter(Boolean).join("\n");
+    try{
+      await navigator.clipboard.writeText(lines);
+      const btn=$("#copyLead"); const orig=btn.textContent;
+      btn.textContent="✓ Copied!"; setTimeout(()=>{ if(btn) btn.textContent=orig; },1600);
+    }catch(e){
+      // fallback for older browsers
+      const ta=document.createElement("textarea"); ta.value=lines; document.body.appendChild(ta);
+      ta.select(); try{ document.execCommand("copy"); toast("Copied",true); }catch(_){ toast("Copy not supported"); }
+      document.body.removeChild(ta);
+    }
+  });
+}
+function detail(k,v){
+  const val = String(v??"");
+  const empty = !val || val==="—";
+  return `<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut2);margin-bottom:2px">${k}</div>
+    <div style="display:flex;align-items:center;gap:6px;min-width:0">
+      <span style="min-width:0;word-break:break-word">${esc(v)}</span>
+      ${empty?"":`<button class="fcopy" data-copy="${esc(val)}" title="Copy ${esc(k)}" aria-label="Copy ${esc(k)}">⧉</button>`}
+    </div></div>`;
+}
+
+function exportCSV(){
+  const rows=filteredLeads();
+  if(!rows.length){ toast("No leads to export"); return; }
+  const cols=["Name","WhatsApp","Email","City","Product","Model","Colour","Quantity","Comments","Campaign","Source","Status","Rep","Consent","Received"];
+  const data=rows.map(l=>[l.name,l.whatsapp,l.email,l.city,pName(l),pModel(l),l.color||"",l.quantity,l.comments,
+    cName(l),l.source,l.status,rName(l),l.consent?"Yes":"No",new Date(l.createdAt).toLocaleString()]);
+  const csv=[cols,...data].map(r=>r.map(c=>{
+    c=String(c??""); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;
+  }).join(",")).join("\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=`leadfloor-leads-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast(`Exported ${rows.length} leads`,true);
+}
+
+/* =====================================================================
+   PRODUCTS
+   ===================================================================== */
+function viewProducts(C){
+  C.innerHTML=`
+   <div class="phead"><div><h1>Products</h1><div class="sub">${DB.products.length} products · used in the customer form &amp; WhatsApp links</div></div>
+     <div style="display:flex;gap:8px"><button class="btn sec vhide" id="importProd">⇪ Import Excel/CSV</button><button class="btn vhide" id="addProd">＋ Add product</button></div></div>
+   <div class="cardgrid" id="prodGrid">
+     ${DB.products.map(p=>{
+       const cols=(Array.isArray(p.colors)?p.colors:[]).filter(c=>c.name);
+       const pimg=p.image||(cols[0]&&cols[0].image)||"";
+       return `
+       <div class="ecard">
+         <div class="et"><div class="tile">${pimg?`<img src="${esc(pimg)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.replaceWith(document.createTextNode('${esc(initials(p.name))}'))">`:initials(p.name)}</div>
+           <div style="min-width:0"><div class="nm">${esc(p.name)}</div>
+             <div class="meta">${p.model?("Model "+esc(p.model)+(p.price?" · ":"")):""}${esc(p.price||"")}</div></div></div>
+         <div class="meta">${esc(p.link)}</div>
+         ${cols.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${cols.map(c=>`<span class="pill" style="background:var(--panel2);color:var(--mut)">${esc(c.name)}${c.model?(" · "+esc(c.model)):""}</span>`).join("")}</div>`:`<div class="meta" style="color:var(--mut2)">No colour options</div>`}
+         <div class="acts">
+           <span class="pill ${p.active?"on":"off"}">${p.active?"Active":"Hidden"}</span>
+           <span style="flex:1"></span>
+           <button class="iconbtn" data-plink="${p.id}" title="Product link & QR">🔗</button>
+           <button class="iconbtn vhide" data-edit="${p.id}">✏️</button>
+           <button class="iconbtn del vhide" data-del="${p.id}">🗑</button>
+         </div>
+       </div>`;}).join("") || emptyBlock("📦","No products yet","Add your first product to put it on the form.")}
+   </div>`;
+  $("#addProd").addEventListener("click",()=>prodModal());
+  $("#importProd").addEventListener("click",importProductsModal);
+  C.querySelectorAll("[data-plink]").forEach(b=>b.addEventListener("click",()=>prodLinkModal(b.dataset.plink)));
+  C.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>prodModal(b.dataset.edit)));
+  C.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",async()=>{
+    const p=prod(b.dataset.del);
+    if(confirm(`Delete "${p.name}"? Existing leads keep their product name.`)){
+      DB.products=DB.products.filter(x=>x.id!==b.dataset.del); await pushConfig(); viewProducts(C); toast("Product deleted");
+    }
+  }));
+}
+function importProductsModal(){
+  if(isViewer()) return;
+  openModal(`
+    <div class="mhead"><h3>Import products</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="note" style="margin-top:0">
+        Upload an <b>Excel (.xlsx)</b> or <b>CSV</b> file. The first row must be column headers.
+        Recognised columns (any order, capitalisation doesn't matter):<br>
+        <b>Name</b> (required) · <b>Link</b> (required) · <b>Model</b> · <b>Price</b> · <b>Image</b> · <b>Colours</b><br><br>
+        <b>Colours format</b> — one variant per entry, separated by <b>;</b><br>
+        <span class="mono" style="font-size:11px">Black:BS13D:https://img-black.jpg ; White:BS13W:https://img-white.jpg</span><br>
+        Model and image are optional per variant — <span class="mono" style="font-size:11px">Black ; White</span> also works.
+      </div>
+      <div class="fld" style="margin-top:14px"><label>Choose file</label>
+        <input class="ctl" type="file" id="impFile" accept=".xlsx,.xls,.csv"></div>
+      <div id="impStatus" style="color:var(--mut);font-size:13px"></div>
+    </div>
+    <div class="mfoot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="impGo">Import</button></div>`);
+  $("#impGo").addEventListener("click",async()=>{
+    const file=$("#impFile").files[0];
+    if(!file){ toast("Choose a file first"); return; }
+    $("#impStatus").textContent="Reading file…";
+    try{
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:""});
+      const get=(r,keys)=>{
+        for(const k of Object.keys(r)){
+          if(keys.includes(k.toLowerCase().trim())) return String(r[k]).trim();
+        }
+        return "";
+      };
+      let added=0,skipped=0;
+      rows.forEach(r=>{
+        const name=get(r,["name","product","product name"]);
+        const link=get(r,["link","url","purchase link","purchase url"]);
+        if(!name||!link){ skipped++; return; }
+        const colorsRaw=get(r,["colours","colors","variants","colour","color"]);
+        const colors=colorsRaw?colorsRaw.split(/[;|\n]/).map(s=>{
+          const parts=s.split(":").map(x=>x.trim()).filter(x=>x!=="" || true);
+          let cname=(parts[0]||"").trim(), cmodel="", cimg="";
+          if(parts.length>=2){
+            if(/^https?$/i.test(parts[1])){ cimg=parts.slice(1).join(":"); }
+            else{
+              cmodel=parts[1];
+              if(parts.length>=3) cimg=parts.slice(2).join(":");
+            }
+          }
+          return {name:cname,model:cmodel,image:cimg};
+        }).filter(c=>c.name):[];
+        DB.products.push({
+          id:uid("p"), name, link,
+          model:get(r,["model","base model","model code"]),
+          price:(()=>{const v=get(r,["price"]).trim(); if(!v) return ""; return /^[\d.,]+$/.test(v)?("AED "+v):v;})(),
+          image:get(r,["image","image link","photo","picture"]),
+          active:true, colors
+        });
+        added++;
+      });
+      if(!added){
+        $("#impStatus").textContent="No valid rows found — make sure the file has Name and Link columns with values.";
+        return;
+      }
+      await pushConfig(); closeModal(); viewProducts($("#content"));
+      toast(`Imported ${added} product${added>1?"s":""}${skipped?` · ${skipped} row${skipped>1?"s":""} skipped`:""}`,true);
+    }catch(err){
+      $("#impStatus").textContent="Could not read that file: "+(err.message||err);
+    }
+  });
+}
+function prodLinkModal(pid){
+  const p=prod(pid);
+  const activeCamps=DB.campaigns.filter(c=>c.active);
+  openModal(`
+    <div class="mhead"><h3>Product link — ${esc(p.name)}</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="fld"><label>Attach campaign (optional — adds source tracking)</label>
+        <select class="ctl" id="plCamp"><option value="">No campaign · direct</option>${activeCamps.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+      <div class="qrbox"><canvas id="plCanvas"></canvas></div>
+      <div class="linkrow"><input id="plLink" readonly><button class="btn sm" id="plCopy">Copy</button></div>
+      <div class="note">Customers opening this link see <b>${esc(p.name)}</b> already selected — no product dropdown. They choose their colour and pick <b>which sales advisor served them</b> from a dropdown, so the lead lands with the right rep.</div>
+    </div>`);
+  const draw=()=>{
+    const link=buildLink($("#plCamp").value,pid)+"&lock=1";
+    $("#plLink").value=link;
+    try{ new QRious({element:$("#plCanvas"),value:link,size:220,background:"#fff",foreground:"#15191C",level:"M"}); }
+    catch(e){ $("#plCanvas").replaceWith(Object.assign(document.createElement("div"),{textContent:"QR unavailable offline",style:"color:var(--mut);padding:20px"})); }
+  };
+  draw();
+  $("#plCamp").addEventListener("change",draw);
+  $("#plCopy").addEventListener("click",()=>{ navigator.clipboard?.writeText($("#plLink").value); toast("Product link copied",true); });
+}
+function prodModal(id){
+  if(isViewer()) return;
+  const p = id?prod(id):{name:"",link:"",price:"",model:"",image:"",active:true,colors:[]};
+  const colors = Array.isArray(p.colors)? p.colors.slice() : [];
+  openModal(`
+    <div class="mhead"><h3>${id?"Edit product":"Add product"}</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="fld"><label>Product name <span class="req">*</span></label><input class="ctl" id="pName" value="${esc(p.name)}" placeholder="Momax BS13 1-Vibe Bottle"></div>
+      <div class="row2">
+        <div class="fld"><label>Base model code</label><input class="ctl" id="pModel" value="${esc(p.model||"")}" placeholder="BS13"></div>
+        <div class="fld"><label>Price (optional)</label>
+          <div class="pricewrap"><span class="cur">AED</span>
+          <input class="ctl" id="pPrice" inputmode="decimal" value="${esc((p.price||'').replace(/AED/i,'').trim())}" placeholder="149"></div>
+        </div>
+      </div>
+      <div class="fld"><label>Product image link</label><input class="ctl" id="pImg" value="${esc(p.image||"")}" placeholder="https://… main product photo"></div>
+      <div class="fld"><label>Purchase link <span class="req">*</span></label><input class="ctl" id="pLink" value="${esc(p.link)}" placeholder="https://shop.example.com/product"></div>
+      <div class="fld">
+        <label>Colour variants (optional)</label>
+        <div class="colorhint">Each variant gets a colour name, its own model code, and an image link. Customers pick the colour from the image — they never see the model code; it's captured with the lead for your team. The base model code above is used for products without colour variants.</div>
+        <div id="pColors"></div>
+        <div class="addcolor" id="pAddColor">＋ Add colour variant</div>
+      </div>
+      <label class="consent" style="background:var(--panel2)"><input type="checkbox" id="pActive" ${p.active?"checked":""}><span style="color:var(--mut)">Show this product on the customer form</span></label>
+    </div>
+    <div class="mfoot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="pSave">${id?"Save changes":"Add product"}</button></div>`);
+
+  const colorsBox = $("#pColors");
+  function colorRow(c){
+    const row = document.createElement("div");
+    row.className = "colorrow";
+    row.innerHTML = `
+      <img class="thumb" src="${esc(c.image||"")}" onerror="this.style.visibility='hidden'">
+      <input class="cName" placeholder="Colour (e.g. Black)" value="${esc(c.name||"")}">
+      <input class="cModel" placeholder="Model (e.g. BS13D)" value="${esc(c.model||"")}" style="flex:0 0 118px">
+      <input class="cImg" placeholder="Image link (https://…)" value="${esc(c.image||"")}">
+      <button type="button" class="rm">✕</button>`;
+    const img = row.querySelector(".thumb"), imgInput = row.querySelector(".cImg");
+    imgInput.addEventListener("input",()=>{ img.src=imgInput.value; img.style.visibility=imgInput.value?"visible":"hidden"; });
+    row.querySelector(".rm").addEventListener("click",()=>row.remove());
+    colorsBox.appendChild(row);
+  }
+  colors.forEach(colorRow);
+  $("#pAddColor").addEventListener("click",()=>colorRow({name:"",model:"",image:""}));
+
+  $("#pSave").addEventListener("click",async()=>{
+    const name=$("#pName").value.trim(), link=$("#pLink").value.trim();
+    if(!name||!link){ toast("Name and purchase link are required"); return; }
+    const newColors = [...colorsBox.querySelectorAll(".colorrow")].map(r=>({
+      name:r.querySelector(".cName").value.trim(),
+      model:r.querySelector(".cModel").value.trim(),
+      image:r.querySelector(".cImg").value.trim()
+    })).filter(c=>c.name);
+    const priceNum = $("#pPrice").value.replace(/AED/i,"").trim();
+    const payload = {name,link,price:priceNum?("AED "+priceNum):"",model:$("#pModel").value.trim(),image:$("#pImg").value.trim(),active:$("#pActive").checked,colors:newColors};
+    if(id){ Object.assign(prod(id),payload); }
+    else { DB.products.push({id:uid("p"),...payload}); }
+    await pushConfig(); closeModal(); viewProducts($("#content")); toast(id?"Product updated":"Product added",true);
+  });
+}
+
+/* =====================================================================
+   CAMPAIGNS  (link + QR generation)
+   ===================================================================== */
+function viewCampaigns(C){
+  C.innerHTML=`
+   <div class="phead"><div><h1>Campaigns</h1><div class="sub">Each campaign gets its own link &amp; QR · source is captured automatically</div></div>
+     <button class="btn" id="addCamp">＋ New campaign</button></div>
+   <div class="cardgrid">
+     ${DB.campaigns.map(c=>{
+       const n=leadsData().filter(l=>l.campaignId===c.id||cName(l)===c.name).length;
+       const conv=leadsData().filter(l=>(l.campaignId===c.id||cName(l)===c.name)&&l.status==="Converted").length;
+       return `<div class="ecard">
+         <div class="et"><div class="tile">${esc((c.type||"C")[0])}</div>
+           <div style="min-width:0"><div class="nm">${esc(c.name)}</div>
+             <div class="meta">${esc(c.type)} · ${esc(c.source)}</div></div></div>
+         <div class="meta" style="color:var(--mut);font-family:var(--body)">Rep: ${esc(rep(c.repId)?.name||"Unassigned")}</div>
+         <div style="display:flex;gap:16px;font-family:var(--mono);font-size:12px;color:var(--mut)">
+           <span><b style="color:var(--txt)">${n}</b> leads</span>
+           <span><b style="color:var(--s-converted)">${conv}</b> converted</span>
+         </div>
+         <div class="acts">
+           <span class="pill ${c.active?"on":"off"}">${c.active?"Active":"Paused"}</span>
+           <span style="flex:1"></span>
+           <button class="iconbtn" data-qr="${c.id}" title="Link & QR">🔗</button>
+           <button class="iconbtn" data-edit="${c.id}">✏️</button>
+           <button class="iconbtn del" data-del="${c.id}">🗑</button>
+         </div>
+       </div>`;}).join("") || emptyBlock("🎯","No campaigns yet","Create one for each location or event.")}
+   </div>`;
+  $("#addCamp").addEventListener("click",()=>campModal());
+  C.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>campModal(b.dataset.edit)));
+  C.querySelectorAll("[data-qr]").forEach(b=>b.addEventListener("click",()=>qrModal(b.dataset.qr)));
+  C.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",async()=>{
+    const c=camp(b.dataset.del);
+    if(confirm(`Delete campaign "${c.name}"?`)){ DB.campaigns=DB.campaigns.filter(x=>x.id!==b.dataset.del); await pushConfig(); viewCampaigns(C); toast("Campaign deleted"); }
+  }));
+}
+function campModal(id){
+  const c = id?camp(id):{name:"",type:"Gym",source:"",repId:DB.reps[0]?.id||null,active:true,productMode:"all",productIds:[]};
+  const pMode = c.productMode || "all";
+  const pIds = Array.isArray(c.productIds) ? c.productIds : [];
+  openModal(`
+    <div class="mhead"><h3>${id?"Edit campaign":"New campaign"}</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="fld"><label>Campaign name <span class="req">*</span></label><input class="ctl" id="cName" value="${esc(c.name)}" placeholder="Gym Campaign — Fitness First"></div>
+      <div class="row2">
+        <div class="fld"><label>Type</label>
+          <select class="ctl" id="cType">${["Gym","Mall","Event","Exhibition","Retail Store","Online","Other"].map(t=>`<option ${c.type===t?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="fld"><label>Source tag <span class="req">*</span></label><input class="ctl" id="cSource" value="${esc(c.source)}" placeholder="gym_fitfirst"></div>
+      </div>
+      <div class="fld"><label>Assigned sales rep</label>
+        <select class="ctl" id="cRep"><option value="">Unassigned</option>${DB.reps.map(r=>`<option value="${r.id}" ${c.repId===r.id?"selected":""}>${esc(r.name)}</option>`).join("")}</select></div>
+      <div class="fld"><label>Products to promote in this campaign</label>
+        <select class="ctl" id="cProdMode">
+          <option value="all" ${pMode==="all"?"selected":""}>All products</option>
+          <option value="selected" ${pMode==="selected"?"selected":""}>Selected products only</option>
+        </select>
+      </div>
+      <div class="fld ${pMode==="selected"?"":"hide"}" id="cProdPickWrap">
+        <label>Choose products for this location</label>
+        <div id="cProdPick" style="display:flex;flex-direction:column;gap:7px;max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--panel2)">
+          ${DB.products.map(p=>`<label class="pcheck" style="display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer">
+             <input type="checkbox" class="cProdBox" value="${p.id}" ${pIds.includes(p.id)?"checked":""} style="width:17px;height:17px;flex:0 0 auto">
+             <span>${esc(p.name)}${p.price?` <span style="color:var(--mut2)">· ${esc(p.price)}</span>`:""}</span>
+           </label>`).join("") || `<div style="color:var(--mut)">No products yet — add products first.</div>`}
+        </div>
+        <div style="margin-top:7px;display:flex;gap:8px"><button type="button" class="btn sec sm" id="cProdAll">Select all</button><button type="button" class="btn sec sm" id="cProdNone">Clear</button></div>
+      </div>
+      <label class="consent" style="background:var(--panel2)"><input type="checkbox" id="cActive" ${c.active?"checked":""}><span style="color:var(--mut)">Campaign is active</span></label>
+    </div>
+    <div class="mfoot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="cSave">${id?"Save changes":"Create campaign"}</button></div>`);
+  $("#cProdMode").addEventListener("change",e=>{
+    $("#cProdPickWrap").classList.toggle("hide", e.target.value!=="selected");
+  });
+  $("#cProdAll")?.addEventListener("click",()=>document.querySelectorAll(".cProdBox").forEach(b=>b.checked=true));
+  $("#cProdNone")?.addEventListener("click",()=>document.querySelectorAll(".cProdBox").forEach(b=>b.checked=false));
+  $("#cSave").addEventListener("click",async()=>{
+    const name=$("#cName").value.trim();
+    let source=$("#cSource").value.trim().toLowerCase().replace(/\s+/g,"_");
+    if(!name){ toast("Campaign name is required"); return; }
+    if(!source) source = name.toLowerCase().replace(/\s+/g,"_").slice(0,20);
+    const productMode=$("#cProdMode").value;
+    const productIds=productMode==="selected" ? [...document.querySelectorAll(".cProdBox:checked")].map(b=>b.value) : [];
+    if(productMode==="selected" && productIds.length===0){ toast("Pick at least one product, or choose All products"); return; }
+    const payload={name,type:$("#cType").value,source,repId:$("#cRep").value||null,active:$("#cActive").checked,productMode,productIds};
+    if(id) Object.assign(camp(id),payload);
+    else DB.campaigns.push({id:uid("c"),...payload});
+    await pushConfig(); closeModal(); viewCampaigns($("#content")); toast(id?"Campaign updated":"Campaign created",true);
+  });
+}
+function qrModal(campaignId){
+  const c=camp(campaignId);
+  const activeProds=DB.products.filter(p=>p.active);
+  openModal(`
+    <div class="mhead"><h3>Share “${esc(c.name)}”</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="fld"><label>Pre-select product (optional)</label>
+        <select class="ctl" id="qrProd"><option value="">Let customer choose</option>${activeProds.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div>
+      <div class="qrbox"><canvas id="qrCanvas"></canvas></div>
+      <div class="linkrow"><input id="qrLink" readonly><button class="btn sm" id="copyLink">Copy</button></div>
+      <div class="note"><b>Print the QR</b> for your booth, or send the link by WhatsApp. When a customer submits, the source <b>“${esc(c.source)}”</b> is captured automatically so you know which campaign it came from.
+      <br><br><b>Heads-up:</b> this link points to wherever this app is hosted. Deploy the file to your own domain/host and the same QR works on any phone.</div>
+    </div>`);
+  const draw=()=>{
+    const link=buildLink(campaignId,$("#qrProd").value);
+    $("#qrLink").value=link;
+    try{ new QRious({element:$("#qrCanvas"),value:link,size:220,background:"#fff",foreground:"#15191C",level:"M"}); }
+    catch(e){ $("#qrCanvas").replaceWith(Object.assign(document.createElement("div"),{textContent:"QR unavailable offline",style:"color:var(--mut);padding:20px"})); }
+  };
+  draw();
+  $("#qrProd").addEventListener("change",draw);
+  $("#copyLink").addEventListener("click",()=>{ navigator.clipboard?.writeText($("#qrLink").value); toast("Link copied",true); });
+}
+
+/* =====================================================================
+   SALES REPS
+   ===================================================================== */
+function viewReps(C){
+  C.innerHTML=`
+   <div class="phead"><div><h1>Sales reps</h1><div class="sub">${DB.reps.length} reps · assign them to campaigns &amp; leads</div></div>
+     <button class="btn vhide" id="addRep">＋ Add rep</button></div>
+   <div class="cardgrid">
+     ${DB.reps.map(r=>{
+       const n=leadsData().filter(l=>l.repId===r.id||rName(l)===r.name).length;
+       const conv=leadsData().filter(l=>(l.repId===r.id||rName(l)===r.name)&&l.status==="Converted").length;
+       return `<div class="ecard">
+         <div class="et"><div class="tile">${r.image?`<img src="${esc(r.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.replaceWith(document.createTextNode('${esc(initials(r.name))}'))">`:initials(r.name)}</div>
+           <div style="min-width:0"><div class="nm">${esc(r.name)}</div><div class="meta">${esc(r.email||"")}</div></div></div>
+         <div class="meta" style="font-family:var(--body);color:var(--mut)">📱 ${esc(r.whatsapp||"—")}</div>
+         <div style="display:flex;gap:16px;font-family:var(--mono);font-size:12px;color:var(--mut)">
+           <span><b style="color:var(--txt)">${n}</b> assigned</span><span><b style="color:var(--s-converted)">${conv}</b> converted</span></div>
+         <div class="acts"><span class="pill ${r.active?"on":"off"}">${r.active?"Active":"Inactive"}</span><span style="flex:1"></span>
+           <button class="iconbtn vhide" data-edit="${r.id}">✏️</button><button class="iconbtn del vhide" data-del="${r.id}">🗑</button></div>
+       </div>`;}).join("") || emptyBlock("🧑‍💼","No reps yet","Add your sales team members.")}
+   </div>`;
+  $("#addRep").addEventListener("click",()=>repModal());
+  C.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>repModal(b.dataset.edit)));
+  C.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",async()=>{
+    const r=rep(b.dataset.del);
+    if(confirm(`Remove "${r.name}"?`)){ DB.reps=DB.reps.filter(x=>x.id!==b.dataset.del); await pushConfig(); viewReps(C); toast("Rep removed"); }
+  }));
+}
+function repModal(id){
+  if(isViewer()) return;
+  const r=id?rep(id):{name:"",email:"",whatsapp:"",image:"",active:true};
+  openModal(`
+    <div class="mhead"><h3>${id?"Edit rep":"Add sales rep"}</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="fld"><label>Name <span class="req">*</span></label><input class="ctl" id="rName" value="${esc(r.name)}" placeholder="Omar Khalid"></div>
+      <div class="fld"><label>Email (for new-lead alerts)</label><input class="ctl" id="rEmail" value="${esc(r.email)}" placeholder="omar@store.com"></div>
+      <div class="fld"><label>WhatsApp number</label><input class="ctl" id="rWa" value="${esc(r.whatsapp)}" placeholder="+9715xxxxxxxx"></div>
+      <div class="fld"><label>Photo link (optional)</label><input class="ctl" id="rImg" value="${esc(r.image||"")}" placeholder="https://… headshot, shown to customers"></div>
+      <label class="consent" style="background:var(--panel2)"><input type="checkbox" id="rActive" ${r.active?"checked":""}><span style="color:var(--mut)">Active</span></label>
+    </div>
+    <div class="mfoot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="rSave">${id?"Save changes":"Add rep"}</button></div>`);
+  $("#rSave").addEventListener("click",async()=>{
+    const name=$("#rName").value.trim(); if(!name){ toast("Name is required"); return; }
+    const payload={name,email:$("#rEmail").value.trim(),whatsapp:$("#rWa").value.trim(),image:$("#rImg").value.trim(),active:$("#rActive").checked};
+    if(id) Object.assign(rep(id),payload); else DB.reps.push({id:uid("r"),...payload});
+    await pushConfig(); closeModal(); viewReps($("#content")); toast(id?"Rep updated":"Rep added",true);
+  });
+}
+
+/* =====================================================================
+   REPORTS
+   ===================================================================== */
+function viewReports(C){
+  const c=counts();
+  const convRate=c.total?Math.round(c.Converted/c.total*100):0;
+  const data=leadsData();
+  // by product
+  const byProd=DB.products.map(p=>{
+    const ls=data.filter(l=>l.productId===p.id||pName(l)===p.name);
+    return {name:p.name,total:ls.length,conv:ls.filter(l=>l.status==="Converted").length};
+  }).filter(x=>x.total).sort((a,b)=>b.total-a.total);
+  // by campaign
+  const byCamp=DB.campaigns.map(cp=>{
+    const ls=data.filter(l=>l.campaignId===cp.id||cName(l)===cp.name);
+    return {name:cp.name,total:ls.length,conv:ls.filter(l=>l.status==="Converted").length};
+  }).filter(x=>x.total).sort((a,b)=>b.total-a.total);
+  // by rep
+  const byRep=DB.reps.map(r=>{
+    const ls=data.filter(l=>l.repId===r.id||rName(l)===r.name);
+    return {name:r.name,total:ls.length,conv:ls.filter(l=>l.status==="Converted").length};
+  }).filter(x=>x.total).sort((a,b)=>b.conv-a.conv);
+
+  C.innerHTML=`
+   <div class="phead"><div><h1>Reports</h1><div class="sub">Conversion performance across products, campaigns &amp; reps</div></div>
+     <button class="btn sec" id="exportBtn">⤓ Export leads CSV</button></div>
+   <div class="kpis">
+     ${kpi("Total leads",c.total,"#FF5A1F","")}
+     ${kpi("Converted",c.Converted,"#10B981","closed-won")}
+     ${kpi("In progress",c.Contacted+c.Interested,"#F59E0B","contacted + interested")}
+     ${kpi("Conversion rate",convRate+"%","#8B5CF6","")}
+   </div>
+   <div class="grid2">
+     <div class="panelcard"><h3>Top products</h3>${perfTable(byProd)}</div>
+     <div class="panelcard"><h3>Campaign performance</h3>${perfTable(byCamp)}</div>
+   </div>
+   <div class="panelcard"><h3>Rep leaderboard</h3>${perfTable(byRep,true)}</div>`;
+  $("#exportBtn").addEventListener("click",()=>{leadFilters={q:"",status:"",campaign:"",product:""};exportCSV();});
+}
+function perfTable(rows,isRep){
+  if(!rows.length) return `<div class="sub" style="color:var(--mut)">No data yet.</div>`;
+  return `<div class="tscroll"><table style="min-width:auto"><thead><tr>
+    <th>${isRep?"Rep":"Name"}</th><th>Leads</th><th>Converted</th><th>Rate</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="mono">${r.total}</td>
+      <td class="mono" style="color:var(--s-converted)">${r.conv}</td>
+      <td class="mono">${r.total?Math.round(r.conv/r.total*100):0}%</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+/* =====================================================================
+   SETTINGS
+   ===================================================================== */
+function viewSettings(C){
+  const s=DB.settings;
+  C.innerHTML=`
+   <div class="phead"><div><h1>Settings</h1><div class="sub">Business details, WhatsApp message &amp; notifications</div></div></div>
+   <div style="max-width:620px">
+     <div class="panelcard" style="margin-bottom:16px">
+       <h3>Business</h3>
+       <div class="fld"><label>Business name</label><input class="ctl mbody-ctl" id="sBiz" value="${esc(s.business)}"></div>
+       <div class="row2">
+         <div class="fld"><label>Admin email</label><input class="ctl" id="sEmail" value="${esc(s.adminEmail)}"></div>
+         <div class="fld"><label>Admin WhatsApp</label><input class="ctl" id="sWa" value="${esc(s.adminWhatsapp)}"></div>
+       </div>
+       <div class="fld"><label>Console passcode</label><input class="ctl" id="sPass" value="${esc(s.passcode)}"></div>
+       <div class="fld"><label>Team passcode (view-only: Dashboard &amp; Campaigns usable, everything else read-only)</label><input class="ctl" id="sTeamPass" value="${esc(s.teamPasscode||"team")}"></div>
+     </div>
+     <div class="panelcard" style="margin-bottom:16px">
+       <h3>WhatsApp message template</h3>
+       <p class="sub" style="margin:-8px 0 12px">Use <b style="color:var(--txt)">{name}</b>, <b style="color:var(--txt)">{product}</b>, <b style="color:var(--txt)">{color}</b> and <b style="color:var(--txt)">{link}</b> — they're filled in per lead. The product placeholder already includes the chosen colour.</p>
+       <div class="fld"><textarea class="ctl" id="sTpl" style="min-height:120px">${esc(s.waTemplate)}</textarea></div>
+       <div class="note" id="tplPreview"></div>
+     </div>
+     <div class="panelcard" style="margin-bottom:16px">
+       <h3>LeadFloor login wallpaper</h3>
+       <p class="sub" style="margin:-8px 0 12px">Background of the LeadFloor login page (the passcode screen your team sees — customers never see it). Set a desktop and a mobile image so it looks right on both — leave the mobile field blank to reuse the desktop image. A subtle dark overlay keeps the sign-in box readable. Leave both blank for the plain default. Tip: upload images to your GitHub repo or use space.ae image links.</p>
+       <div class="fld"><label>Desktop background URL</label><input class="ctl" id="sBg" value="${esc(s.signupBg||"")}" placeholder="https://…/wallpaper-desktop.jpg"></div>
+       <div id="bgPrev" style="margin:0 0 14px;border-radius:12px;overflow:hidden;border:1px solid var(--line);height:130px;background:#0a101c;position:relative;display:none">
+         <div id="bgPrevImg" style="position:absolute;inset:0;background-size:cover;background-position:center"></div>
+         <div style="position:absolute;inset:0;background:rgba(10,16,28,.45)"></div>
+         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600">Desktop preview · with overlay</div>
+       </div>
+       <div class="fld"><label>Mobile background URL (optional)</label><input class="ctl" id="sBgM" value="${esc(s.signupBgMobile||"")}" placeholder="https://…/wallpaper-mobile.jpg — blank = use desktop"></div>
+       <div id="bgPrevM" style="margin-top:0;border-radius:12px;overflow:hidden;border:1px solid var(--line);height:200px;max-width:150px;background:#0a101c;position:relative;display:none">
+         <div id="bgPrevImgM" style="position:absolute;inset:0;background-size:cover;background-position:center"></div>
+         <div style="position:absolute;inset:0;background:rgba(10,16,28,.45)"></div>
+         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;text-align:center;padding:8px">Mobile preview · with overlay</div>
+       </div>
+     </div>
+     <div class="panelcard" style="margin-bottom:16px">
+       <h3>New-lead notifications</h3>
+       <p class="sub" style="margin:-8px 0 12px">Automated email &amp; WhatsApp alerts need a small server. Paste a webhook URL (e.g. a Google Apps Script or Zapier/Make hook) and every new lead is POSTed to it as JSON — wire that to send email, write to Google Sheets, or ping WhatsApp.</p>
+       <div class="fld"><label>Lead webhook URL (optional)</label><input class="ctl" id="sHook" value="${esc(s.webhook)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+     </div>
+     <div style="display:flex;gap:10px" class="vhide"><button class="btn" id="saveSettings">Save settings</button></div>
+
+     <div class="note" style="margin-top:22px">
+       <b>What runs where.</b> The form, dashboard and reports run in the browser. With the webhook connected, <b>leads</b> are stored in your Google Sheet, and your <b>products, campaigns, reps and settings</b> are saved to a "Config" tab in the same Sheet — so the hosted site (e.g. GitHub Pages) shows the same setup on every device, and nothing is lost when the browser is cleared.
+     </div>
+   </div>`;
+  const renderPrev=()=>{
+    const tpl=$("#sTpl").value;
+    const demo=tpl.replace(/{name}/g,"Sara").replace(/{product}/g,"Momax BS13 1-Vibe Bottle").replace(/{link}/g,"https://shop.example.com/…");
+    $("#tplPreview").innerHTML=`<b>Preview:</b><br>${esc(demo).replace(/\n/g,"<br>")}`;
+  };
+  renderPrev(); $("#sTpl").addEventListener("input",renderPrev);
+  const bindBgPrev=(input,box,img)=>{
+    const f=()=>{ const u=$(input).value.trim();
+      if(u){ $(img).style.backgroundImage=`url("${u.replace(/"/g,'%22')}")`; $(box).style.display="block"; }
+      else { $(box).style.display="none"; } };
+    f(); $(input).addEventListener("input",f);
+  };
+  bindBgPrev("#sBg","#bgPrev","#bgPrevImg");
+  bindBgPrev("#sBgM","#bgPrevM","#bgPrevImgM");
+  $("#saveSettings").addEventListener("click",async()=>{
+    if(isViewer()) return;
+    Object.assign(DB.settings,{
+      business:$("#sBiz").value.trim()||"Our Store",
+      adminEmail:$("#sEmail").value.trim(), adminWhatsapp:$("#sWa").value.trim(),
+      passcode:$("#sPass").value.trim()||"admin",
+      teamPasscode:$("#sTeamPass").value.trim()||"team",
+      waTemplate:$("#sTpl").value, webhook:$("#sHook").value.trim(),
+      signupBg:$("#sBg").value.trim(), signupBgMobile:$("#sBgM").value.trim()
+    });
+    await pushConfig(); applyLoginWallpaper(); toast("Settings saved",true);
+  });
+}
+
+/* =====================================================================
+   MODAL plumbing
+   ===================================================================== */
+function openModal(html){ $("#modal").innerHTML=html; $("#scrim").classList.add("on");
+  $("#modal").querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",closeModal)); }
+function closeModal(){ $("#scrim").classList.remove("on"); }
+$("#scrim").addEventListener("click",e=>{ if(e.target===$("#scrim")) closeModal(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+
+function applyLoginWallpaper(){
+  const gate = document.getElementById("gate"); if(!gate) return;
+  const d = (DB.settings.signupBg||"").trim();
+  const m = (DB.settings.signupBgMobile||"").trim();
+  const cssUrl = u => `url("${u.replace(/"/g,'%22')}")`;
+  gate.style.setProperty("--g-desktop", d ? cssUrl(d) : "none");
+  gate.style.setProperty("--g-mobile",  m ? cssUrl(m) : (d ? cssUrl(d) : "none"));
+  gate.classList.toggle("has-bg", !!(d || m));
+}
+function setSyncStatus(state){
+  const el = document.getElementById("syncStat"); if(!el) return;
+  const dot = el.querySelector(".dot"), txt = el.querySelector(".txt");
+  el.classList.remove("ok","off");
+  if(state==="ok"){ el.classList.add("ok"); txt.textContent = "Synced — data shared across devices"; }
+  else if(state==="off"){ el.classList.add("off"); txt.textContent = "Not connected — add webhook in Settings"; }
+  else { txt.textContent = "Checking sync…"; }
+}
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+(async function(){
+  await loadDB();
+  window.addEventListener("hashchange",route);
+  route();
+  applyLoginWallpaper();
+  setSyncStatus(DB.settings.webhook ? "checking" : "off");
+  // pull the shared setup + leads from the Google Sheet, then re-render if anything changed
+  if(DB.settings.webhook){
+    const rows = await refreshLive();
+    setSyncStatus(rows ? "ok" : "off");
+    applyLoginWallpaper();   // wallpaper may have arrived with synced config
+    // Re-render after the Sheet responds. For the customer form this is
+    // essential: the first paint may have used not-yet-synced data, which
+    // would show the wrong (default) sales rep. Re-running route() now
+    // resolves the real campaign and its assigned advisor.
+    const onCustomer = (location.hash||"").startsWith("#/c");
+    if(configApplied || onCustomer){ configApplied=false; route(); }
+  }
+})();
+</script>
+</body>
+</html>
