@@ -195,6 +195,16 @@
   tbody tr:hover{background:var(--panel2)}
   .lname{font-weight:600}
   .lsub{font-size:12px;color:var(--mut);font-family:var(--mono)}
+  /* leads: desktop table vs mobile cards */
+  .leads-mobile{display:none}
+  .lcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(20,30,40,.05)}
+  .lcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:11px}
+  .lcard-grid{display:grid;grid-template-columns:1fr;gap:7px;font-size:13.5px;color:var(--ink-txt);margin-bottom:13px}
+  .lcard-grid > div{min-width:0;word-break:break-word}
+  .lcard-grid .lk{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut2);margin-bottom:1px;font-weight:600}
+  .lcard-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lcard-act .stsel{flex:0 0 auto}
+  .lcard-act .wabtn{flex:1 1 auto;justify-content:center}
   .chiprow{display:flex;gap:6px;align-items:center}
 
   .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
@@ -285,6 +295,8 @@
   }
   @media(max-width:720px){
     .shell{flex-direction:column}
+    .leads-desktop{display:none}
+    .leads-mobile{display:block}
     .side{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;height:auto;flex-direction:row;border-right:none;border-top:1px solid var(--line);z-index:40}
     .side .brand,.side .foot{display:none}
     .nav{display:flex;padding:6px;gap:2px;overflow-x:auto}
@@ -1046,8 +1058,10 @@ function fieldError(form,name,msg){
   if(msg){ if(err){err.textContent=msg; err.classList.remove("hide");} visible.style.borderColor="var(--err)"; }
   else { if(err) err.classList.add("hide"); visible.style.borderColor=""; }
 }
+let leadSubmitting = false;
 $("#leadForm").addEventListener("submit", async e=>{
   e.preventDefault();
+  if(leadSubmitting) return;          // ignore repeat taps while a submit is in flight
   const form = e.target;
   const f = Object.fromEntries(new FormData(form).entries());
   let ok=true;
@@ -1071,6 +1085,12 @@ $("#leadForm").addEventListener("submit", async e=>{
   }
   if(!form.querySelector("[name=consent]").checked){ toast("Please tick the consent box to continue"); ok=false; }
   if(!ok) return;
+
+  // lock to prevent duplicate leads from repeated taps
+  leadSubmitting = true;
+  const submitBtn = $("#leadSubmit");
+  const btnLabel = submitBtn ? submitBtn.textContent : "";
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; submitBtn.style.pointerEvents = "none"; submitBtn.textContent = "Submitting…"; }
 
   // full international number, e.g. +97150...
   const fullNumber = (f.cc||"+971") + localDigits.replace(/^0+/,"");
@@ -1098,6 +1118,10 @@ $("#leadForm").addEventListener("submit", async e=>{
   $("#cformView").classList.add("hide");
   $("#cThanksView").classList.remove("hide");
   window.scrollTo({top:0,behavior:"smooth"});
+
+  // release the lock and restore the button for the next submission
+  leadSubmitting = false;
+  if(submitBtn){ submitBtn.disabled = false; submitBtn.style.opacity = ""; submitBtn.style.pointerEvents = ""; submitBtn.textContent = btnLabel; }
 });
 $("#cAnother").addEventListener("click",()=>renderCustomer(curCampaignId, $("#cProdSelect").value, curLocked));
 
@@ -1391,7 +1415,7 @@ function renderLeadsTable(){
     el.innerHTML=`<div class="tablewrap">${emptyBlock("🔍","No matching leads","Try clearing filters or share a campaign link to collect more.")}</div>`;
     return;
   }
-  el.innerHTML=`<div class="tablewrap"><div class="tscroll"><table><thead><tr>
+  el.innerHTML=`<div class="tablewrap leads-desktop"><div class="tscroll"><table><thead><tr>
      <th>Customer</th><th>Product</th><th>Colour</th><th>Qty</th><th>Campaign</th><th>Rep</th><th>Status</th><th>Reach out</th><th></th>
    </tr></thead><tbody>
    ${rows.map(l=>`<tr data-id="${esc(l.id)}">
@@ -1415,7 +1439,32 @@ function renderLeadsTable(){
        <button class="iconbtn" data-view-lead="${esc(l.id)}" title="View details">👁</button>
      </td>
    </tr>`).join("")}
-   </tbody></table></div></div>`;
+   </tbody></table></div></div>
+   <div class="leads-mobile">
+   ${rows.map(l=>`<div class="lcard" data-id="${esc(l.id)}">
+     <div class="lcard-top">
+       <div style="min-width:0">
+         <div class="lname">${esc(l.name)}</div>
+         <div class="lsub">${esc(fmtPhone(l.whatsapp))}</div>
+         <div class="lsub">${esc(l.city||"")} · ${timeAgo(l.createdAt)}</div>
+       </div>
+       ${badge(l.status)}
+     </div>
+     <div class="lcard-grid">
+       <div><span class="lk">Product</span>${esc(pName(l))}${pModel(l)?` <span class="lsub">(${esc(pModel(l))})</span>`:""}</div>
+       <div><span class="lk">Colour</span>${l.color?esc(l.color):"—"} · <span class="lk" style="display:inline;margin:0 0 0 2px">Qty</span> ${esc(l.quantity)}</div>
+       <div><span class="lk">Campaign</span>${esc(cName(l))}</div>
+       <div><span class="lk">Rep</span>${esc(rName(l))}</div>
+     </div>
+     <div class="lcard-act">
+       <select class="stsel" data-status="${esc(l.id)}">
+         ${STATUSES.map(s=>`<option ${l.status===s?"selected":""}>${s}</option>`).join("")}
+       </select>
+       <a class="wabtn" href="${esc(waLink(l))}" target="_blank">${waIcon()} WhatsApp</a>
+       <button class="iconbtn" data-view-lead="${esc(l.id)}" title="View details">👁</button>
+     </div>
+   </div>`).join("")}
+   </div>`;
 
   el.querySelectorAll("[data-status]").forEach(s=>s.addEventListener("change",async e=>{
     const id=e.target.dataset.status, status=e.target.value;
