@@ -231,6 +231,7 @@
   .iconbtn{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--mut);display:inline-flex;align-items:center;justify-content:center}
   .iconbtn:hover{color:var(--txt);border-color:var(--mut2)}
   .iconbtn.del:hover{color:var(--err);border-color:var(--err)}
+  .btn.sec.del:hover{color:var(--err);border-color:var(--err)}
 
   .empty{text-align:center;padding:54px 20px;color:var(--mut)}
   .empty .big{font-family:var(--disp);font-size:17px;font-weight:600;color:var(--txt);margin:14px 0 6px}
@@ -888,6 +889,29 @@ async function pushStatus(leadId, status){
       body:JSON.stringify({action:"updateStatus", id:leadId, status})});
   }catch(e){}
 }
+async function pushLeadUpdate(lead){
+  const url = DB.settings.webhook;
+  if(!url) return;
+  const p=prod(lead.productId), c=camp(lead.campaignId), r=rep(lead.repId);
+  const payload={
+    id:lead.id, name:lead.name, whatsapp:lead.whatsapp, email:lead.email, city:lead.city,
+    productName:p?.name||lead.productName||"", productModel:lead.productModel||p?.model||"",
+    color:lead.color||"", quantity:lead.quantity, comments:lead.comments||"",
+    campaignName:c?.name||lead.campaignName||"", status:lead.status||"New", repName:r?.name||lead.repName||""
+  };
+  try{
+    await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"updateLead", lead:payload})});
+  }catch(e){}
+}
+async function pushLeadDelete(leadId){
+  const url = DB.settings.webhook;
+  if(!url) return;
+  try{
+    await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"deleteLead", id:leadId})});
+  }catch(e){}
+}
 
 /* =====================================================================
    ROUTING — decide customer form vs admin
@@ -1479,6 +1503,23 @@ async function setLeadStatus(id,status){
   const local = DB.leads.find(x=>String(x.id)===String(id));
   if(local){ local.status=status; await saveDB(); }
 }
+async function saveLeadEdit(id, fields){
+  // apply to whichever arrays hold this lead, then sync to the Sheet
+  const apply = (l)=>Object.assign(l, fields);
+  const live = LIVE && LIVE.find(x=>String(x.id)===String(id));
+  if(live) apply(live);
+  const local = DB.leads.find(x=>String(x.id)===String(id));
+  if(local) apply(local);
+  await saveDB();
+  const merged = live || local || {id, ...fields};
+  await pushLeadUpdate(merged);
+}
+async function deleteLeadById(id){
+  if(LIVE) LIVE = LIVE.filter(x=>String(x.id)!==String(id));
+  DB.leads = DB.leads.filter(x=>String(x.id)!==String(id));
+  await saveDB();
+  await pushLeadDelete(id);
+}
 function leadModal(id){
   const l=leadsData().find(x=>String(x.id)===String(id)); if(!l)return;
   openModal(`
@@ -1502,8 +1543,21 @@ function leadModal(id){
       <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
         <button class="btn sec" id="copyLead">⧉ Copy all details</button>
         <a class="wabtn" style="display:inline-flex" href="${esc(waLink(l))}" target="_blank">${waIcon()} Message on WhatsApp</a>
+        <span style="flex:1"></span>
+        <button class="btn sec" id="editLead">✏️ Edit</button>
+        <button class="btn sec del" id="deleteLead">🗑 Delete</button>
       </div>
     </div>`);
+  $("#editLead")?.addEventListener("click",()=>leadEditModal(l.id));
+  $("#deleteLead")?.addEventListener("click",async()=>{
+    if(confirm(`Delete the lead from ${l.name}? This removes it from the dashboard and the Google Sheet and cannot be undone.`)){
+      await deleteLeadById(l.id);
+      closeModal();
+      renderLeadsTable();
+      navTo(curView);
+      toast("Lead deleted",true);
+    }
+  });
   // per-field copy buttons
   $("#modal").querySelectorAll(".fcopy").forEach(btn=>btn.addEventListener("click",async(e)=>{
     e.preventDefault();
@@ -1539,6 +1593,60 @@ function leadModal(id){
       ta.select(); try{ document.execCommand("copy"); toast("Copied",true); }catch(_){ toast("Copy not supported"); }
       document.body.removeChild(ta);
     }
+  });
+}
+function leadEditModal(id){
+  const l=leadsData().find(x=>String(x.id)===String(id)); if(!l)return;
+  const localDigits=String(l.whatsapp||"").replace(/^\+/,"");
+  const reps=DB.reps.filter(r=>r.active||r.id===l.repId);
+  const camps=DB.campaigns;
+  openModal(`
+    <div class="mhead"><h3>Edit lead — ${esc(l.name)}</h3><button class="iconbtn" data-close>✕</button></div>
+    <div class="mbody">
+      <div class="fld"><label>Name <span class="req">*</span></label><input class="ctl" id="elName" value="${esc(l.name||"")}"></div>
+      <div class="row2">
+        <div class="fld"><label>WhatsApp (with country code)</label><input class="ctl" id="elWa" value="${esc(fmtPhone(l.whatsapp)||"")}" placeholder="+9715xxxxxxxx"></div>
+        <div class="fld"><label>Email</label><input class="ctl" id="elEmail" value="${esc(l.email||"")}"></div>
+      </div>
+      <div class="row2">
+        <div class="fld"><label>City</label><input class="ctl" id="elCity" value="${esc(l.city||"")}"></div>
+        <div class="fld"><label>Quantity</label><input class="ctl" id="elQty" type="number" min="1" value="${esc(l.quantity||1)}"></div>
+      </div>
+      <div class="row2">
+        <div class="fld"><label>Colour</label><input class="ctl" id="elColor" value="${esc(l.color||"")}"></div>
+        <div class="fld"><label>Status</label><select class="ctl" id="elStatus">${STATUSES.map(s=>`<option ${l.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
+      </div>
+      <div class="fld"><label>Assigned rep</label>
+        <select class="ctl" id="elRep"><option value="">Unassigned</option>${reps.map(r=>`<option value="${r.id}" ${(l.repId===r.id||rName(l)===r.name)?"selected":""}>${esc(r.name)}</option>`).join("")}</select></div>
+      <div class="fld"><label>Campaign</label>
+        <select class="ctl" id="elCamp"><option value="">—</option>${camps.map(c=>`<option value="${c.id}" ${(l.campaignId===c.id||cName(l)===c.name)?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
+      <div class="fld"><label>Comments</label><textarea class="ctl" id="elComments" rows="2">${esc(l.comments||"")}</textarea></div>
+    </div>
+    <div class="mfoot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="elSave">Save changes</button></div>`);
+  $("#elSave").addEventListener("click",async()=>{
+    const name=$("#elName").value.trim();
+    if(!name){ toast("Name is required"); return; }
+    const chosenRep = rep($("#elRep").value);
+    const chosenCamp = camp($("#elCamp").value);
+    const fields = {
+      name,
+      whatsapp: fmtPhone($("#elWa").value.trim()),
+      email: $("#elEmail").value.trim(),
+      city: $("#elCity").value.trim(),
+      quantity: Number($("#elQty").value)||1,
+      color: $("#elColor").value.trim(),
+      status: $("#elStatus").value,
+      repId: $("#elRep").value||null,
+      repName: chosenRep?chosenRep.name:"",
+      campaignId: $("#elCamp").value||null,
+      campaignName: chosenCamp?chosenCamp.name:"",
+      comments: $("#elComments").value.trim()
+    };
+    await saveLeadEdit(id, fields);
+    closeModal();
+    renderLeadsTable();
+    navTo(curView);
+    toast("Lead updated",true);
   });
 }
 function detail(k,v){
