@@ -93,6 +93,32 @@
   .swatch .dot{width:100%;aspect-ratio:1;border-radius:7px;margin-bottom:6px;border:1px solid rgba(0,0,0,.08)}
   .swatch .cn{font-size:12px;font-weight:600;color:var(--ink-txt);line-height:1.2}
 
+  /* product picker (image + per-colour quantity) */
+  .prodpick{border:1.5px solid var(--paper2);border-radius:var(--r);background:#fff;padding:14px;margin-bottom:18px;display:none}
+  .prodpick.on{display:block}
+  .prodpick-img{width:100%;height:170px;border-radius:11px;background:var(--paper2) center/contain no-repeat;margin-bottom:12px}
+  .prodpick-name{font-weight:700;font-size:15px;color:var(--ink-txt);line-height:1.25}
+  .prodpick-price{font-size:13px;color:var(--mut);margin:2px 0 12px;font-weight:600}
+  .qrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--paper2)}
+  .qrow:first-child{border-top:none}
+  .qrow .qsw{width:30px;height:30px;border-radius:7px;flex:0 0 auto;border:1px solid rgba(0,0,0,.08);background-size:cover;background-position:center}
+  .qrow .qnm{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--ink-txt)}
+  .qstep{display:flex;align-items:center;gap:0;border:1.5px solid var(--paper2);border-radius:8px;overflow:hidden}
+  .qstep button{width:32px;height:32px;background:var(--paper);font-size:17px;font-weight:700;color:var(--ink-txt);cursor:pointer;border:none}
+  .qstep button:active{background:var(--paper2)}
+  .qstep input{width:42px;height:32px;text-align:center;border:none;font-size:14px;font-weight:600;font-family:var(--mono);-moz-appearance:textfield}
+  .qstep input::-webkit-outer-spin-button,.qstep input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .addbtn{width:100%;justify-content:center;margin-top:14px}
+  /* basket */
+  #cBasket{display:flex;flex-direction:column;gap:9px}
+  .bitem{display:flex;gap:11px;align-items:center;background:var(--paper);border:1.5px solid var(--paper2);border-radius:11px;padding:10px}
+  .bitem .bimg{width:42px;height:42px;border-radius:8px;flex:0 0 auto;background:#fff center/cover no-repeat;border:1px solid rgba(0,0,0,.06)}
+  .bitem .binfo{flex:1;min-width:0}
+  .bitem .bname{font-size:13.5px;font-weight:700;color:var(--ink-txt);line-height:1.2}
+  .bitem .bsub{font-size:12px;color:var(--mut);font-family:var(--mono);margin-top:2px}
+  .bitem .brm{flex:0 0 auto;border:1px solid var(--paper2);background:#fff;width:30px;height:30px;border-radius:7px;cursor:pointer;color:var(--mut);font-size:15px}
+  .bitem .brm:hover{color:var(--err);border-color:var(--err)}
+
   /* =========================================================
      ADMIN CONSOLE  (dark surface)
      ========================================================= */
@@ -527,30 +553,33 @@
           <input class="ctl" name="email" type="email" autocomplete="email" placeholder="you@email.com (optional)">
           <div class="ferr hide"></div>
         </div>
-        <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="fld">
-            <label>City / location</label>
-            <input class="ctl" name="city" autocomplete="address-level2" placeholder="Dubai">
-          </div>
-          <div class="fld">
-            <label>Quantity</label>
-            <input class="ctl" name="quantity" type="number" min="1" value="1">
-          </div>
+        <div class="fld">
+          <label>City / location</label>
+          <input class="ctl" name="city" autocomplete="address-level2" placeholder="Dubai">
         </div>
         <div class="fld" id="cProdFld">
-          <label>Interested product <span class="req">*</span></label>
+          <label>Choose a product <span class="req">*</span></label>
           <select class="ctl" name="productId" id="cProdSelect"></select>
+        </div>
+        <!-- product image + per-colour quantity picker -->
+        <div class="prodpick" id="cProdPick">
+          <div class="prodpick-img" id="cPickImg"></div>
+          <div class="prodpick-body">
+            <div class="prodpick-name" id="cPickName"></div>
+            <div class="prodpick-price" id="cPickPrice"></div>
+            <div id="cPickQtyWrap"></div>
+            <button type="button" class="btn sec addbtn" id="cAddItem">＋ Add to my list</button>
+          </div>
+        </div>
+        <!-- the customer's selected items -->
+        <div class="fld hide" id="cBasketFld">
+          <label>Your selection</label>
+          <div id="cBasket"></div>
+          <div class="ferr hide"></div>
         </div>
         <div class="fld hide" id="cRepFld">
           <label>Your sales advisor <span class="req">*</span></label>
           <select class="ctl" id="cRepSelect"></select>
-          <div class="ferr hide"></div>
-        </div>
-        <div class="fld hide" id="cColorFld">
-          <label>Choose colour <span class="req">*</span></label>
-          <div class="colorgrid" id="cColorGrid"></div>
-          <input type="hidden" name="color" id="cColorVal">
-          <input type="hidden" name="colorModel" id="cColorModel">
           <div class="ferr hide"></div>
         </div>
         <div class="fld">
@@ -1027,7 +1056,8 @@ function renderCustomer(campaignId, productId, lock){
   }
   $("#cCC").value = "+971";
   initCCDisplay();
-  document.querySelector('#leadForm [name=quantity]').value=1;
+  cBasket = [];
+  renderBasket();
   syncProdCard();
 }
 /* Country code select: show only flag + code when closed,
@@ -1049,26 +1079,103 @@ function initCCDisplay(){
   }
   sel._ccShort();
 }
+// ---- product picker + basket (multi-product, multi-colour, per-variant qty) ----
+let cBasket = [];   // [{productId, productName, price, image, model, lines:[{color,model,qty}]}]
+
 function syncProdCard(){
-  renderColorPicker(prod($("#cProdSelect").value));
+  renderProductPicker(prod($("#cProdSelect").value));
 }
-function renderColorPicker(p){
-  const fld = $("#cColorFld"), grid = $("#cColorGrid"), val = $("#cColorVal"), mdl = $("#cColorModel");
-  const colors = (p && Array.isArray(p.colors)) ? p.colors.filter(c=>c.name) : [];
-  val.value = ""; mdl.value = "";
-  if(!colors.length){ fld.classList.add("hide"); grid.innerHTML=""; return; }
+
+function renderProductPicker(p){
+  const pick = $("#cProdPick");
+  if(!p){ pick.classList.remove("on"); return; }
+  pick.classList.add("on");
+  // image (always show — fall back to a neutral panel if none)
+  const img = $("#cPickImg");
+  if(p.image){ img.style.backgroundImage = `url("${String(p.image).replace(/"/g,'%22')}")`; img.style.opacity="1"; }
+  else { img.style.backgroundImage = "none"; }
+  $("#cPickName").textContent = p.name;
+  $("#cPickPrice").textContent = p.price || "";
+  // per-colour quantity rows, or a single quantity row if no colours
+  const colors = (Array.isArray(p.colors) ? p.colors.filter(c=>c.name) : []);
+  const wrap = $("#cPickQtyWrap");
+  if(colors.length){
+    wrap.innerHTML = colors.map((c,i)=>`
+      <div class="qrow" data-color="${esc(c.name)}" data-model="${esc(c.model||"")}">
+        ${c.image ? `<div class="qsw" style="background-image:url('${esc(c.image)}')"></div>`
+                  : `<div class="qsw" style="background:${swatchColor(c.name)}"></div>`}
+        <div class="qnm">${esc(c.name)}</div>
+        <div class="qstep">
+          <button type="button" data-step="-1">−</button>
+          <input type="number" min="0" value="0" inputmode="numeric">
+          <button type="button" data-step="1">+</button>
+        </div>
+      </div>`).join("");
+  } else {
+    wrap.innerHTML = `
+      <div class="qrow" data-color="" data-model="${esc(p.model||"")}">
+        <div class="qnm">Quantity</div>
+        <div class="qstep">
+          <button type="button" data-step="-1">−</button>
+          <input type="number" min="0" value="1" inputmode="numeric">
+          <button type="button" data-step="1">+</button>
+        </div>
+      </div>`;
+  }
+  // wire steppers
+  wrap.querySelectorAll(".qstep").forEach(step=>{
+    const input = step.querySelector("input");
+    step.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+      const v = Math.max(0, (Number(input.value)||0) + Number(b.dataset.step));
+      input.value = v;
+    }));
+  });
+}
+
+function renderBasket(){
+  const fld = $("#cBasketFld"), box = $("#cBasket");
+  if(!cBasket.length){ fld.classList.add("hide"); box.innerHTML=""; return; }
   fld.classList.remove("hide");
-  grid.innerHTML = colors.map((c,i)=>`
-    <div class="swatch" data-color="${esc(c.name)}" data-model="${esc(c.model||"")}" data-i="${i}">
-      ${c.image ? `<img class="img" src="${esc(c.image)}" alt="${esc(c.name)}" onerror="this.style.display='none'">`
-                : `<div class="dot" style="background:${swatchColor(c.name)}"></div>`}
-      <div class="cn">${esc(c.name)}</div>
-    </div>`).join("");
-  grid.querySelectorAll(".swatch").forEach(s=>s.addEventListener("click",()=>{
-    grid.querySelectorAll(".swatch").forEach(x=>x.classList.remove("sel"));
-    s.classList.add("sel"); val.value = s.dataset.color; mdl.value = s.dataset.model||"";
+  box.innerHTML = cBasket.map((it,idx)=>{
+    const sub = it.lines.map(l=> l.color ? `${l.color} ×${l.qty}` : `×${l.qty}`).join(", ");
+    return `<div class="bitem">
+      ${it.image?`<div class="bimg" style="background-image:url('${esc(it.image)}')"></div>`:`<div class="bimg"></div>`}
+      <div class="binfo"><div class="bname">${esc(it.productName)}</div><div class="bsub">${esc(sub)}</div></div>
+      <button type="button" class="brm" data-rm="${idx}" title="Remove">✕</button>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("[data-rm]").forEach(b=>b.addEventListener("click",()=>{
+    cBasket.splice(Number(b.dataset.rm),1); renderBasket();
   }));
 }
+
+function addCurrentItemToBasket(){
+  const p = prod($("#cProdSelect").value);
+  if(!p){ toast("Pick a product first"); return; }
+  const rows = [...$("#cPickQtyWrap").querySelectorAll(".qrow")];
+  const lines = [];
+  rows.forEach(r=>{
+    const qty = Number(r.querySelector("input").value)||0;
+    if(qty>0) lines.push({ color:r.dataset.color||"", model:r.dataset.model||"", qty });
+  });
+  if(!lines.length){ toast("Set a quantity of at least 1"); return; }
+  // merge if the same product is already in the basket
+  const existing = cBasket.find(x=>x.productId===p.id);
+  if(existing){
+    lines.forEach(nl=>{
+      const m = existing.lines.find(el=>el.color===nl.color);
+      if(m) m.qty += nl.qty; else existing.lines.push(nl);
+    });
+  } else {
+    cBasket.push({ productId:p.id, productName:p.name, price:p.price||"", image:p.image||"", model:p.model||"", lines });
+  }
+  renderBasket();
+  // reset the picker quantities to 0 for the next pick
+  $("#cPickQtyWrap").querySelectorAll("input").forEach(i=>i.value="0");
+  toast(`${p.name} added`, true);
+  const bf = $("#cBasketFld"); const err = bf.querySelector(".ferr"); if(err) err.classList.add("hide");
+}
+
 function swatchColor(name){
   const map={black:"#222",white:"#eee",blue:"#2b6cff",red:"#e23",green:"#16a34a",grey:"#888",gray:"#888",
     silver:"#c8c8c8",gold:"#d4af37",pink:"#f7a",purple:"#8b5cf6",orange:"#ff7a1f",yellow:"#facc15",navy:"#1e3a8a"};
@@ -1093,10 +1200,19 @@ $("#leadForm").addEventListener("submit", async e=>{
   const localDigits=(f.whatsapp||"").replace(/[^\d]/g,"");
   if(localDigits.length<6){ fieldError(form,"whatsapp","Enter a valid WhatsApp number"); ok=false; } else fieldError(form,"whatsapp");
   if(f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)){ fieldError(form,"email","Enter a valid email"); ok=false; } else fieldError(form,"email");
-  // colour required only if the product has colours
-  const selProd = prod(f.productId);
-  const hasColors = selProd && Array.isArray(selProd.colors) && selProd.colors.filter(c=>c.name).length;
-  if(hasColors && !f.color){ fieldError(form,"color","Please choose a colour"); ok=false; } else if(hasColors) fieldError(form,"color");
+  // if the customer set quantities but didn't tap "Add to my list", add them now
+  if(!cBasket.length){
+    const rows=[...$("#cPickQtyWrap").querySelectorAll(".qrow")];
+    if(rows.some(r=>(Number(r.querySelector("input").value)||0)>0)) addCurrentItemToBasket();
+  }
+  // require at least one item in the basket
+  if(!cBasket.length){
+    const bf=$("#cBasketFld"); const err=bf?.querySelector(".ferr");
+    bf?.classList.remove("hide");
+    if(err){ err.textContent="Please add at least one product with a quantity"; err.classList.remove("hide"); }
+    toast("Add at least one product");
+    ok=false;
+  }
   if(curLocked){
     const rs = $("#cRepSelect"), rw = $("#cRepFld"), re = rw.querySelector(".ferr");
     if(!rs.value){
@@ -1119,12 +1235,30 @@ $("#leadForm").addEventListener("submit", async e=>{
   // full international number, e.g. +97150...
   const fullNumber = (f.cc||"+971") + localDigits.replace(/^0+/,"");
 
+  // build readable combined fields from the basket
+  // Product:  "MOMAX Bottle; AT Titan Case"
+  // Colour:   "Black×2, White×2; Purple×3"   (semicolons separate products)
+  // Quantity: total units
+  const prodNames = cBasket.map(it=>it.productName);
+  const colourStr = cBasket.map(it=>
+    it.lines.map(l=> l.color ? `${l.color}×${l.qty}` : `Qty ${l.qty}`).join(", ")
+  ).join(" ; ");
+  const modelStr = cBasket.map(it=>
+    it.lines.map(l=> l.model ? `${l.model}×${l.qty}` : "").filter(Boolean).join(", ")
+  ).filter(Boolean).join(" ; ");
+  const totalQty = cBasket.reduce((s,it)=>s+it.lines.reduce((a,l)=>a+l.qty,0),0);
+  const firstProd = prod(cBasket[0].productId);
+
   const c = camp(curCampaignId);
   const lead = {
     id:uid("l"), name:f.name.trim(), whatsapp:fullNumber,
     email:(f.email||"").trim(), city:(f.city||"").trim(),
-    productId:f.productId, color:(f.color||"").trim(),
-    productModel:(f.colorModel||selProd?.model||"").trim(), quantity:Number(f.quantity)||1,
+    productId: cBasket.length===1 ? cBasket[0].productId : null,
+    productName: prodNames.join("; "),
+    color: colourStr,
+    productModel: modelStr,
+    quantity: totalQty,
+    items: cBasket.map(it=>({product:it.productName, lines:it.lines})),
     comments:(f.comments||"").trim(), consent:true,
     campaignId:curCampaignId, source:c?c.source:"direct",
     status:"New",
@@ -1136,9 +1270,8 @@ $("#leadForm").addEventListener("submit", async e=>{
   await notify(lead);            // attempts webhook if configured
 
   // thank-you
-  const p = prod(lead.productId);
   $("#cThanksMsg").textContent =
-    `Thanks, ${lead.name.split(" ")[0]}. Our team will message you on WhatsApp shortly about the ${p?p.name:"product"}${lead.color?(" ("+lead.color+")"):""}.`;
+    `Thanks, ${lead.name.split(" ")[0]}. Our team will message you on WhatsApp shortly about your selection (${prodNames.join(", ")}).`;
   $("#cformView").classList.add("hide");
   $("#cThanksView").classList.remove("hide");
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1148,6 +1281,7 @@ $("#leadForm").addEventListener("submit", async e=>{
   if(submitBtn){ submitBtn.disabled = false; submitBtn.style.opacity = ""; submitBtn.style.pointerEvents = ""; submitBtn.textContent = btnLabel; }
 });
 $("#cAnother").addEventListener("click",()=>renderCustomer(curCampaignId, $("#cProdSelect").value, curLocked));
+$("#cAddItem")?.addEventListener("click", addCurrentItemToBasket);
 
 async function notify(lead){
   // Real email/WhatsApp push needs a server. If a webhook is set, POST the lead there.
